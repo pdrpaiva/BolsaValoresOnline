@@ -1,8 +1,2 @@
 ﻿  bolsa.c
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(153,19): warning C4101: 'response': variável local não referenciada
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(160,15): warning C4101: 'response': variável local não referenciada
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(169,19): warning C4101: 'response': variável local não referenciada
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(175,15): warning C4101: 'response': variável local não referenciada
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(182,19): warning C4101: 'response': variável local não referenciada
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Bolsa\bolsa.c(188,15): warning C4101: 'response': variável local não referenciada
   Bolsa.vcxproj -> C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\x64\Debug\Bolsa.exe
