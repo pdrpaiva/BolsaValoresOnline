@@ -54,14 +54,14 @@ void removeCliente(ServerState* state, HANDLE cli) {
     }
 }
 
-int writeClienteASINC(ServerState* state, HANDLE hPipe, AppMessage msg) {
+int writeClienteASINC(ServerState* state, HANDLE hPipe, Msg msg) {
     DWORD cbWritten = 0;
     BOOL fSuccess = FALSE;
 
     OVERLAPPED OverlWr = { 0 };
     OverlWr.hEvent = state->writeReady;
 
-    fSuccess = WriteFile(hPipe, &msg, sizeof(AppMessage), &cbWritten, &OverlWr);
+    fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &cbWritten, &OverlWr);
 
     if (!fSuccess && GetLastError() != ERROR_IO_PENDING) {
         PrintLastError(TEXT("\nError writing to client"));
@@ -70,10 +70,10 @@ int writeClienteASINC(ServerState* state, HANDLE hPipe, AppMessage msg) {
 
     WaitForSingleObject(state->writeReady, INFINITE);
     GetOverlappedResult(hPipe, &OverlWr, &cbWritten, TRUE);
-    return (cbWritten == sizeof(AppMessage));
+    return (cbWritten == sizeof(Msg));
 }
 
-int broadcastClientes(ServerState* state, AppMessage msg) {
+int broadcastClientes(ServerState* state, Msg msg) {
     int numerites = 0;
     for (int i = 0; i < MAXCLIENTES; i++) {
         if (state->clientPipes[i] != NULL) {
@@ -92,7 +92,7 @@ int broadcastClientes(ServerState* state, AppMessage msg) {
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     ServerState server;
     HANDLE hPipe = (HANDLE)lpvParam;
-    AppMessage msgRequest, msgResponse;
+    Msg msgRequest, msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;
     OVERLAPPED overl = { 0 };
@@ -100,9 +100,9 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
     // Loop de leitura e resposta
     while (1) {
-        ZeroMemory(&msgRequest, sizeof(AppMessage));
+        ZeroMemory(&msgRequest, sizeof(Msg));
         ResetEvent(overl.hEvent);
-        fSuccess = ReadFile(hPipe, &msgRequest, sizeof(AppMessage), &bytesRead, &overl);
+        fSuccess = ReadFile(hPipe, &msgRequest, sizeof(Msg), &bytesRead, &overl);
 
         if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
             WaitForSingleObject(overl.hEvent, INFINITE);
@@ -134,7 +134,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             break;
         }
 
-        fSuccess = WriteFile(hPipe, &msgResponse, sizeof(AppMessage), NULL, &overl);
+        fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), NULL, &overl);
         if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
             WaitForSingleObject(overl.hEvent, INFINITE);
             if (!GetOverlappedResult(hPipe, &overl, NULL, FALSE)) {

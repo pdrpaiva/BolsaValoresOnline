@@ -6,16 +6,11 @@
 
 #define MSGTXTSZ 256
 #define MAXCLIENTES 10
+#define Msg_Sz sizeof(Msg)
 
 typedef struct {
     TCHAR msg[MSGTXTSZ];
 } Msg;
-
-typedef struct {
-    TCHAR msg[MSGTXTSZ];
-} AppMessage;
-
-#define Msg_Sz sizeof(Msg)
 
 typedef struct {
     HANDLE hPipe;
