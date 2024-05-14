@@ -7,6 +7,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Cliente", "Cliente\Cliente.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Bolsa", "Bolsa\Bolsa.vcxproj", "{98F119AD-89CB-4F19-9B78-7239AB438259}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HeaderFiles", "HeaderFiles", "{2D221D66-D487-43E0-80D2-5F827FBEB618}"
+	ProjectSection(SolutionItems) = preProject
+		utils.h = utils.h
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64

@@ -1,7 +1,7 @@
-#include "utils.h"
 #include <stdio.h>
 #include <io.h>
 #include <fcntl.h>
+#include "../utils.h"
 
 void InitializeServerState(ServerState* state) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
