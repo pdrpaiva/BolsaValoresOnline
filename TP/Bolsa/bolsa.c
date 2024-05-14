@@ -6,7 +6,7 @@
 void InitializeServerState(ServerState* state) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
         state->clientPipes[i] = NULL;
-        state->readEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL); // Ensure events are created for each client
+        state->readEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
     state->writeReady = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
@@ -44,7 +44,7 @@ void removeCliente(ServerState* state, HANDLE cli) {
         if (state->clientPipes[i] == cli) {
             CloseHandle(state->clientPipes[i]);
             state->clientPipes[i] = NULL;
-            CloseHandle(state->readEvents[i]); // Close the associated read event
+            CloseHandle(state->readEvents[i]);
             state->readEvents[i] = NULL;
             break;
         }
@@ -60,8 +60,8 @@ int writeClienteASINC(ServerState* state, HANDLE hPipe, AppMessage msg) {
 
     fSuccess = WriteFile(hPipe, &msg, sizeof(AppMessage), &cbWritten, &OverlWr);
 
-    if (!fSuccess) {
-        PrintLastError(TEXT("\nOcorreu algo na escrita para 1 cliente"));
+    if (!fSuccess && GetLastError() != ERROR_IO_PENDING) {
+        PrintLastError(TEXT("\nError writing to client"));
         return 0;
     }
 
@@ -79,7 +79,7 @@ int broadcastClientes(ServerState* state, AppMessage msg) {
             }
             else {
                 removeCliente(state, state->clientPipes[i]);
-                _tprintf(TEXT("\nCliente suspeito removido."));
+                _tprintf(TEXT("\nSuspect client removed."));
             }
         }
     }
@@ -87,53 +87,35 @@ int broadcastClientes(ServerState* state, AppMessage msg) {
 }
 
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
-    ServerState* serverState = (ServerState*)lpvParam;  // Cast do parâmetro para o tipo ServerState
-    int clientIndex = -1;
-
-    // Encontrar o índice do cliente baseado no HANDLE passado
-    for (int i = 0; i < MAXCLIENTES; i++) {
-        if (serverState->clientPipes[i] != NULL) {
-            clientIndex = i;
-            break;
-        }
-    }
-
-    if (clientIndex == -1) {
-        _tprintf(TEXT("Error: Client index not found.\n"));
-        return 1; // Encerra a thread se o índice do cliente não for encontrado
-    }
-
-    HANDLE hPipe = serverState->clientPipes[clientIndex];
-    HANDLE readEvent = serverState->readEvents[clientIndex];
+    HANDLE hPipe = (HANDLE)lpvParam;
     AppMessage msgRequest, msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;
     OVERLAPPED overl = { 0 };
-    overl.hEvent = readEvent;
+    overl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     // Loop de leitura e resposta
     while (1) {
         ZeroMemory(&msgRequest, sizeof(AppMessage));
+        ResetEvent(overl.hEvent);
         fSuccess = ReadFile(hPipe, &msgRequest, sizeof(AppMessage), &bytesRead, &overl);
 
-        if (!fSuccess) {
-            if (GetLastError() == ERROR_IO_PENDING) {
-                WaitForSingleObject(readEvent, INFINITE);
-                if (!GetOverlappedResult(hPipe, &overl, &bytesRead, FALSE) || bytesRead == 0) {
-                    if (GetLastError() == ERROR_BROKEN_PIPE) {
-                        _tprintf(TEXT("Client disconnected.\n"));
-                        break;
-                    }
-                    else {
-                        PrintLastError(TEXT("ReadFile failed"));
-                        continue;
-                    }
+        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+            WaitForSingleObject(overl.hEvent, INFINITE);
+            if (!GetOverlappedResult(hPipe, &overl, &bytesRead, FALSE) || bytesRead == 0) {
+                if (GetLastError() == ERROR_BROKEN_PIPE) {
+                    _tprintf(TEXT("Client disconnected.\n"));
+                    break;
+                }
+                else {
+                    PrintLastError(TEXT("ReadFile failed"));
+                    continue;
                 }
             }
-            else {
-                PrintLastError(TEXT("ReadFile failed"));
-                break;
-            }
+        }
+        else if (!fSuccess) {
+            PrintLastError(TEXT("ReadFile failed"));
+            break;
         }
 
         // Processa a mensagem recebida
@@ -142,13 +124,21 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
         // Simples eco como resposta
         msgResponse = msgRequest;
 
-        // Broadcast da resposta para todos os clientes
-        int numResponses = broadcastClientes(serverState, msgResponse);
-        _tprintf(TEXT("Broadcast responses sent to %d clients.\n"), numResponses);
+        if (_tcscmp(msgRequest.msg, TEXT("exit")) == 0) {
+            _tprintf(TEXT("Client requested disconnect.\n"));
+            break;
+        }
+
+        fSuccess = WriteFile(hPipe, &msgResponse, sizeof(AppMessage), NULL, &overl);
+        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+            WaitForSingleObject(overl.hEvent, INFINITE);
+            if (!GetOverlappedResult(hPipe, &overl, NULL, FALSE)) {
+                PrintLastError(TEXT("WriteFile failed"));
+            }
+        }
     }
 
-    // Limpeza após o cliente se desconectar
-    removeCliente(serverState, hPipe);
+    CloseHandle(overl.hEvent);
     DisconnectNamedPipe(hPipe);
     CloseHandle(hPipe);
 
@@ -165,7 +155,7 @@ int _tmain(void) {
     _setmode(_fileno(stderr), _O_WTEXT);
 
     while (1) {
-        _tprintf(TEXT("\nServidor - ciclo principal - criando named pipe - %s"), lpszPipename);
+        _tprintf(TEXT("\nServer - main loop - creating named pipe - %s"), lpszPipename);
 
         HANDLE hPipe = CreateNamedPipe(
             lpszPipename,
@@ -179,25 +169,24 @@ int _tmain(void) {
         );
 
         if (hPipe == INVALID_HANDLE_VALUE) {
-            PrintLastError(TEXT("CREATEnamepipe falhou"));
+            PrintLastError(TEXT("CreateNamedPipe failed"));
             return -1;
         }
 
         BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
         if (fConnected) {
-            adicionaCliente(&server, hPipe);
-            _tprintf(TEXT("\nCliente conectado. Criando uma thread para ele."));
+            _tprintf(TEXT("\nClient connected. Creating a thread for it."));
             HANDLE hThread = CreateThread(
                 NULL,
                 0,
                 InstanceThread,
-                &server,  // Passando a estrutura do servidor para a thread
+                (LPVOID)hPipe,
                 0,
                 NULL
             );
 
             if (hThread == NULL) {
-                PrintLastError(TEXT("Erro na criação da thread"));
+                PrintLastError(TEXT("Thread creation failed"));
                 return -1;
             }
             else {
@@ -211,5 +200,3 @@ int _tmain(void) {
 
     return 0;
 }
-
-

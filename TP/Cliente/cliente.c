@@ -1,4 +1,3 @@
-// cliente.c
 #include "utils.h"
 #include <windows.h>
 #include <stdio.h>
@@ -79,7 +78,6 @@ int _tmain(int argc, LPTSTR argv[]) {
     _setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
-    // Attempt to open a pipe instance
     while (1) {
         clientState.hPipe = CreateFile(
             lpszPipename,
@@ -105,7 +103,6 @@ int _tmain(int argc, LPTSTR argv[]) {
         }
     }
 
-    // Set the pipe mode to message-read mode.
     dwMode = PIPE_READMODE_MESSAGE;
     fSuccess = SetNamedPipeHandleState(
         clientState.hPipe,
@@ -119,7 +116,6 @@ int _tmain(int argc, LPTSTR argv[]) {
         return -1;
     }
 
-    // Launch the reader thread
     hThread = CreateThread(
         NULL,
         0,
@@ -138,7 +134,8 @@ int _tmain(int argc, LPTSTR argv[]) {
     while (clientState.deveContinuar) {
         readTChars(MsgToSend.msg, MSGTXTSZ);
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
-            clientState.deveContinuar = 0; // Signal the reader thread to exit
+            _tprintf(TEXT("AQUI!!!!!!!"));
+            clientState.deveContinuar = 0;
             break;
         }
 
@@ -163,7 +160,7 @@ int _tmain(int argc, LPTSTR argv[]) {
         }
     }
 
-    WaitForSingleObject(hThread, INFINITE); // Wait for the reader thread to exit
+    WaitForSingleObject(hThread, INFINITE);
 
     CloseHandle(hThread);
     CloseHandle(clientState.readEvent);
@@ -172,4 +169,3 @@ int _tmain(int argc, LPTSTR argv[]) {
 
     return 0;
 }
-

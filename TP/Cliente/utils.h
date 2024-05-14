@@ -1,11 +1,10 @@
-// utils.h
 #ifndef UTILS_H
 #define UTILS_H
 
 #include <windows.h>
 #include <tchar.h>
 
-#define MSGTXTSZ 60
+#define MSGTXTSZ 256
 
 typedef struct {
     TCHAR msg[MSGTXTSZ];
