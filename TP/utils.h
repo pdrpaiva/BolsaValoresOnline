@@ -4,12 +4,12 @@
 #include <windows.h>
 #include <tchar.h>
 
-#define MSGTXTSZ 256
+#define MSG_TAM 256
 #define MAXCLIENTES 10
-#define Msg_Sz sizeof(Msg)
+#define Msg_Size sizeof(Msg)
 
 typedef struct {
-    TCHAR msg[MSGTXTSZ];
+    TCHAR msg[MSG_TAM];
 } Msg;
 
 typedef struct {
@@ -23,7 +23,7 @@ typedef struct {
 typedef struct {
     HANDLE clientPipes[MAXCLIENTES]; // Array de handles para os pipes dos clientes
     HANDLE writeReady;               // Handle para o evento de escrita pronta
-    HANDLE readEvents[MAXCLIENTES];  // Event handles for read operations
+    HANDLE readEvent;
 } ServerState;
 
 void readTChars(TCHAR* p, int maxChars);
