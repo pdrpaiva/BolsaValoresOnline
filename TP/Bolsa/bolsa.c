@@ -44,8 +44,11 @@ void removeCliente(ServerState* state, HANDLE cli) {
         if (state->clientPipes[i] == cli) {
             CloseHandle(state->clientPipes[i]);
             state->clientPipes[i] = NULL;
-            CloseHandle(state->readEvents[i]);
-            state->readEvents[i] = NULL;
+            if (state->readEvents[i] != NULL) {
+                CloseHandle(state->readEvents[i]);
+                state->readEvents[i] = CreateEvent(NULL, TRUE, FALSE, NULL);  // Recreate event for future use
+            }
+            _tprintf(TEXT("\nClient %d disconnected."), i);
             break;
         }
     }
@@ -87,6 +90,7 @@ int broadcastClientes(ServerState* state, AppMessage msg) {
 }
 
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
+    ServerState server;
     HANDLE hPipe = (HANDLE)lpvParam;
     AppMessage msgRequest, msgResponse;
     DWORD bytesRead = 0;
@@ -126,6 +130,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
         if (_tcscmp(msgRequest.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Client requested disconnect.\n"));
+            removeCliente(&server, hPipe);  // Adicione a chamada aqui
             break;
         }
 

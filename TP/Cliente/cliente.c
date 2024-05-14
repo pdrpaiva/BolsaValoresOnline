@@ -134,8 +134,9 @@ int _tmain(int argc, LPTSTR argv[]) {
     while (clientState.deveContinuar) {
         readTChars(MsgToSend.msg, MSGTXTSZ);
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
-            _tprintf(TEXT("AQUI!!!!!!!"));
+            _tprintf(TEXT("Exiting...\n"));
             clientState.deveContinuar = 0;
+            CloseHandle(clientState.hPipe);
             break;
         }
 
