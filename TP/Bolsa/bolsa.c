@@ -158,7 +158,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 int _tmain(void) {
     ServerState server;
     InitializeServerState(&server);
-    LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\MyPipe");
+    LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
 
     _setmode(_fileno(stdout), _O_WTEXT);
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -185,12 +185,13 @@ int _tmain(void) {
 
         BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
         if (fConnected) {
+            adicionaCliente(&server, hPipe);
             _tprintf(TEXT("\nCliente conectado. Criando uma thread para ele."));
             HANDLE hThread = CreateThread(
                 NULL,
                 0,
                 InstanceThread,
-                (LPVOID)&server,  // Passando a estrutura do servidor para a thread
+                &server,  // Passando a estrutura do servidor para a thread
                 0,
                 NULL
             );
