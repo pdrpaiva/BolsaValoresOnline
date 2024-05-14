@@ -4,15 +4,28 @@
 #include "../utils.h"
 
 void InitializeServerState(ServerState* stateServ) {
-    // Inicializa o array de handles dos pipes dos clientes como NULL
-    // e cria um evento de leitura para cada cliente
+    // Inicializa o estado do servidor
     for (int i = 0; i < MAXCLIENTES; ++i) {
         stateServ->clientPipes[i] = NULL;
-        stateServ->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
-    // Cria um evento de escrita pronto
     stateServ->writeReady = CreateEvent(NULL, TRUE, FALSE, NULL);
+    stateServ->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    stateServ->numEmpresas = 0;
+    stateServ->numUtilizadores = 0;
+    stateServ->tradingPaused = FALSE;
 }
+
+void PrintMenu() {
+    _tprintf(TEXT("\n--- Comandos da Bolsa ---\n\n"));
+    _tprintf(TEXT("addc <nome-empresa> <número-ações> <preço-ação> - Adicionar empresa\n"));
+    _tprintf(TEXT("listc - Listar todas as empresas\n"));
+    _tprintf(TEXT("stock <nome-empresa> <novo-preço> - Alterar preço das ações\n"));
+    _tprintf(TEXT("users - Listar utilizadores\n"));
+    _tprintf(TEXT("pause <segundos> - Pausar operações\n"));
+    _tprintf(TEXT("close - Encerrar sistema\n"));
+    _tprintf(TEXT("Digite um comando:\n"));
+}
+
 
 void PrintLastError(const TCHAR* msg) {
     // Declaração de variáveis para armazenar informações sobre o erro
@@ -104,6 +117,55 @@ int broadcastClientes(ServerState* stateServ, Msg msg) {
 }
 */
 
+void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
+    if (_tcsncmp(command, TEXT("addc"), 4) == 0) {
+        TCHAR nomeEmpresa[50];
+        int numAcoes;
+        double precoAcao;
+        if (_stscanf_s(command, TEXT("addc %s %d %lf"), nomeEmpresa, &numAcoes, &precoAcao) == 3) {
+            TCHAR response[MSG_TAM];
+            //AddCompany(stateServ, nomeEmpresa, numAcoes, precoAcao, response);
+            _tprintf(TEXT("%s\n"), response);
+        }
+    }
+    else if (_tcscmp(command, TEXT("listc")) == 0) {
+        TCHAR response[MSG_TAM];
+        //ListCompanies(stateServ, response);
+        _tprintf(TEXT("%s\n"), response);
+    }
+    else if (_tcsncmp(command, TEXT("stock"), 5) == 0) {
+        TCHAR nomeEmpresa[50];
+        double newPrice;
+        if (_stscanf_s(command, TEXT("stock %s %lf"), nomeEmpresa, &newPrice) == 2) {
+            TCHAR response[MSG_TAM];
+            //SetStockPrice(stateServ, nomeEmpresa, newPrice, response);
+            _tprintf(TEXT("%s\n"), response);
+        }
+    }
+    else if (_tcscmp(command, TEXT("users")) == 0) {
+        TCHAR response[MSG_TAM];
+        //ListUsers(stateServ, response);
+        _tprintf(TEXT("%s\n"), response);
+    }
+    else if (_tcsncmp(command, TEXT("pause"), 5) == 0) {
+        int duration;
+        if (_stscanf_s(command, TEXT("pause %d"), &duration) == 1) {
+            TCHAR response[MSG_TAM];
+            //PauseTrading(stateServ, duration, response);
+            _tprintf(TEXT("%s\n"), response);
+        }
+    }
+    else if (_tcscmp(command, TEXT("close")) == 0) {
+        TCHAR response[MSG_TAM];
+        //CloseSystem(stateServ, response);
+        _tprintf(TEXT("%s\n"), response);
+        ExitProcess(0); // Sai do programa completamente
+    }
+    else {
+        _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
+    }
+}
+
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     // Declaração das variáveis locais
     ServerState stateServ;
@@ -187,6 +249,9 @@ int _tmain(void) {
 
     // Inicializa o estado do servidor
     InitializeServerState(&stateServ);
+
+    PrintMenu();
+
     // Define o nome do pipe
     LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
 

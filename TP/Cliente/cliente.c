@@ -82,8 +82,8 @@ int _tmain(int argc, LPTSTR argv[]) {
     stateCli.hPipe = INVALID_HANDLE_VALUE;
     stateCli.readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     stateCli.writeEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    stateCli.deveContinuar = 1;
-    stateCli.readerAtivo = 1;
+    stateCli.deveContinuar = TRUE;
+    stateCli.readerAtivo = TRUE;
 
     // Verifica se a criação dos eventos foi bem-sucedida
     if (stateCli.readEvent == NULL || stateCli.writeEvent == NULL) {
@@ -177,7 +177,7 @@ int _tmain(int argc, LPTSTR argv[]) {
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Exiting...\n"));
             // Define a flag de controle para encerrar o loop principal
-            stateCli.deveContinuar = 0;
+            stateCli.deveContinuar = FALSE;
 
             // Fecha o handle do pipe
             CloseHandle(stateCli.hPipe);

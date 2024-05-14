@@ -1,2 +1,23 @@
 ﻿  bolsa.c
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33): warning C4477: 'swscanf_s': a cadeia de formato '%s' requer um argumento do tipo 'unsigned int', mas um argumento variadic 2 tem o tipo 'int *'
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33):
+  esse argumento é usado como um tamanho do buffer
+  
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33): warning C4477: 'swscanf_s': a cadeia de formato '%d' requer um argumento do tipo 'int *', mas um argumento variadic 3 tem o tipo 'double *'
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33): warning C4473: 'swscanf_s' : não há argumentos suficientes transmitidos para a cadeia de caracteres de formato
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33):
+  espaços reservados e seus parâmetros esperam 4 argumentos variadic, mas 3 foram fornecidos
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33):
+  o argumento variadic 4 ausente é requerido pela cadeia de formato '%lf'
+  
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33): warning C4477: 'swscanf_s': a cadeia de formato '%s' requer um argumento do tipo 'unsigned int', mas um argumento variadic 2 tem o tipo 'double *'
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+  esse argumento é usado como um tamanho do buffer
+  
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33): warning C4473: 'swscanf_s' : não há argumentos suficientes transmitidos para a cadeia de caracteres de formato
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+  espaços reservados e seus parâmetros esperam 3 argumentos variadic, mas 2 foram fornecidos
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+  o argumento variadic 3 ausente é requerido pela cadeia de formato '%lf'
+  
   Bolsa.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Bolsa.exe
