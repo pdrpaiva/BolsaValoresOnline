@@ -46,7 +46,14 @@ typedef struct {
 } ServerState;
 
 
-void readTChars(TCHAR* p, int maxChars);
+void readTChars(TCHAR* p, int maxChars) {
+    size_t len;
+    _fgetts(p, maxChars, stdin);
+    len = _tcslen(p);
+    if (p[len - 1] == TEXT('\n')) {
+        p[len - 1] = TEXT('\0');
+    }
+}
 void InitializeServerState(ServerState* state);
 void PrintLastError(const TCHAR* msg);
 void PrintMenu();

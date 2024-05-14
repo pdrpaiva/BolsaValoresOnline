@@ -125,13 +125,14 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         if (_stscanf_s(command, TEXT("addc %s %d %lf"), nomeEmpresa, &numAcoes, &precoAcao) == 3) {
             TCHAR response[MSG_TAM];
             //AddCompany(stateServ, nomeEmpresa, numAcoes, precoAcao, response);
-            _tprintf(TEXT("%s\n"), response);
+            //_tprintf(TEXT("%s\n"), response);
         }
     }
     else if (_tcscmp(command, TEXT("listc")) == 0) {
         TCHAR response[MSG_TAM];
         //ListCompanies(stateServ, response);
-        _tprintf(TEXT("%s\n"), response);
+        //_tprintf(TEXT("%s\n"), response);
+        _tprintf(TEXT("goiabao"));
     }
     else if (_tcsncmp(command, TEXT("stock"), 5) == 0) {
         TCHAR nomeEmpresa[50];
@@ -139,26 +140,26 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         if (_stscanf_s(command, TEXT("stock %s %lf"), nomeEmpresa, &newPrice) == 2) {
             TCHAR response[MSG_TAM];
             //SetStockPrice(stateServ, nomeEmpresa, newPrice, response);
-            _tprintf(TEXT("%s\n"), response);
+            //_tprintf(TEXT("%s\n"), response);
         }
     }
     else if (_tcscmp(command, TEXT("users")) == 0) {
         TCHAR response[MSG_TAM];
         //ListUsers(stateServ, response);
-        _tprintf(TEXT("%s\n"), response);
+        //_tprintf(TEXT("%s\n"), response);
     }
     else if (_tcsncmp(command, TEXT("pause"), 5) == 0) {
         int duration;
         if (_stscanf_s(command, TEXT("pause %d"), &duration) == 1) {
             TCHAR response[MSG_TAM];
             //PauseTrading(stateServ, duration, response);
-            _tprintf(TEXT("%s\n"), response);
+            //_tprintf(TEXT("%s\n"), response);
         }
     }
     else if (_tcscmp(command, TEXT("close")) == 0) {
         TCHAR response[MSG_TAM];
         //CloseSystem(stateServ, response);
-        _tprintf(TEXT("%s\n"), response);
+        //_tprintf(TEXT("%s\n"), response);
         ExitProcess(0); // Sai do programa completamente
     }
     else {
@@ -252,19 +253,23 @@ int _tmain(void) {
 
     PrintMenu();
 
-    // Define o nome do pipe
-    LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
-
     _setmode(_fileno(stdout), _O_WTEXT);
     _setmode(_fileno(stdin), _O_WTEXT);
     _setmode(_fileno(stderr), _O_WTEXT);
+
+    HANDLE hPipe, hThread;
+    //nome do pipe
+    LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
+    DWORD threadID;
+    BOOL fConnected;
+    TCHAR command[256];
 
     // Loop principal do servidor
     while (1) {
         _tprintf(TEXT("\nServer - main loop - creating named pipe - %s"), lpszPipename);
 
         // Cria o named pipe
-        HANDLE hPipe = CreateNamedPipe(
+        hPipe = CreateNamedPipe(
             lpszPipename,
             PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,  // Modo de acesso e flags
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,  // Tipo de pipe e modo de leitura
@@ -281,13 +286,13 @@ int _tmain(void) {
         }
 
         // Verifica se já existe uma conexão pendente
-        BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+        fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
         
         // Se houver uma conexão pendente, cria uma nova thread para lidar com ela
         if (fConnected) {
             _tprintf(TEXT("\nClient connected. Creating a thread for it."));
             
-            HANDLE hThread = CreateThread(
+            hThread = CreateThread(
                 NULL, 0,  // Atributos de segurança e tamanho da pilha (padrão)
                 InstanceThread,  // Função da thread
                 (LPVOID)hPipe,  // Parâmetro da thread (handle do pipe)
@@ -307,6 +312,13 @@ int _tmain(void) {
         else {
             // Se não houver conexão pendente, fecha o handle do pipe
             CloseHandle(hPipe);
+        }
+
+        // Processa um comando administrativo, se disponível
+        _tprintf(TEXT("\nDigite um comando administrativo: "));
+        readTChars(command, 256);
+        if (_tcslen(command) > 0) {  // Verifica se algum comando foi digitado
+            ProcessAdminCommand(&stateServ, command);
         }
     }
 

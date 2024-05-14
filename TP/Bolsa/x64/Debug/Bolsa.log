@@ -10,14 +10,21 @@ C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\B
   C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(125,33):
   o argumento variadic 4 ausente é requerido pela cadeia de formato '%lf'
   
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33): warning C4477: 'swscanf_s': a cadeia de formato '%s' requer um argumento do tipo 'unsigned int', mas um argumento variadic 2 tem o tipo 'double *'
-  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(140,33): warning C4477: 'swscanf_s': a cadeia de formato '%s' requer um argumento do tipo 'unsigned int', mas um argumento variadic 2 tem o tipo 'double *'
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(140,33):
   esse argumento é usado como um tamanho do buffer
   
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33): warning C4473: 'swscanf_s' : não há argumentos suficientes transmitidos para a cadeia de caracteres de formato
-  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(140,33): warning C4473: 'swscanf_s' : não há argumentos suficientes transmitidos para a cadeia de caracteres de formato
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(140,33):
   espaços reservados e seus parâmetros esperam 3 argumentos variadic, mas 2 foram fornecidos
-  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(139,33):
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(140,33):
   o argumento variadic 3 ausente é requerido pela cadeia de formato '%lf'
   
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(126,19): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(132,15): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(141,19): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(147,15): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(154,19): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(160,15): warning C4101: 'response': variável local não referenciada
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(263,11): warning C4101: 'threadID': variável local não referenciada
   Bolsa.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Bolsa.exe
