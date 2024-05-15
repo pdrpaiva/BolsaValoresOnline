@@ -10,6 +10,14 @@
 #define MAX_UTILIZADORES 20
 #define Msg_Size sizeof(Msg)
 
+#define MAX_TOP_EMPRESAS 10
+#define SHARED_MEM_NAME _T("BolsaSharedMemory")
+#define MUTEX_NAME _T("BolsaMutex")
+#define EVENT_NAME _T("BolsaEvent")
+
+
+
+
 typedef struct {
     TCHAR msg[MSG_TAM];
 } Msg;
@@ -44,6 +52,24 @@ typedef struct {
     HANDLE writeReady;               // Handle para o evento de escrita pronta
     HANDLE readEvent;
 } ServerState;
+
+
+//teste
+
+typedef struct {
+    TCHAR nomeEmpresa[50];
+    int numAcoes;
+    double valor;
+} Transacao;
+
+typedef struct {
+    Empresa empresas[MAX_EMPRESAS];
+    Transacao ultimaTransacao;
+    int numEmpresas;
+} SharedData;
+
+
+//teste
 
 
 void readTChars(TCHAR* p, int maxChars) {

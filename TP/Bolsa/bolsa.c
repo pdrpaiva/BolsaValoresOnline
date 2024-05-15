@@ -3,6 +3,10 @@
 #include <fcntl.h>
 #include "../utils.h"
 
+
+HANDLE hMapFile, hMutex, hEvent;
+SharedData* pSharedData;
+
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
         stateServ->clientPipes[i] = NULL;
@@ -15,14 +19,6 @@ void InitializeServerState(ServerState* stateServ) {
 }
 
 void PrintMenu() {
-
-
-#ifdef UNICODE
-    _setmode(_fileno(stdin), _O_WTEXT);
-    _setmode(_fileno(stdout), _O_WTEXT);
-    _setmode(_fileno(stderr), _O_WTEXT);
-#endif
-
     _tprintf(TEXT("\n--- Comandos da Bolsa ---\n\n"));
     _tprintf(TEXT("addc <nome-empresa> <número-ações> <preço-ação> - Adicionar empresa\n"));
     _tprintf(TEXT("listc - Listar todas as empresas\n"));
@@ -76,6 +72,16 @@ void removeCliente(ServerState* stateServ, HANDLE hCli) {
     }
 }
 
+void UpdateSharedData(ServerState* state) {
+    WaitForSingleObject(hMutex, INFINITE);
+    pSharedData->numEmpresas = state->numEmpresas;
+    for (int i = 0; i < state->numEmpresas; ++i) {
+        pSharedData->empresas[i] = state->empresas[i];
+    }
+    SetEvent(hEvent);
+    ReleaseMutex(hMutex);
+}
+
 void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response) {
     if (state->numEmpresas < MAX_EMPRESAS) {
         _tcsncpy_s(state->empresas[state->numEmpresas].nomeEmpresa, _countof(state->empresas[state->numEmpresas].nomeEmpresa), nomeEmpresa, _TRUNCATE);
@@ -83,6 +89,7 @@ void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, doub
         state->empresas[state->numEmpresas].precoAcao = precoAcao;
         state->numEmpresas++;
         _stprintf_s(response, MSG_TAM, TEXT("Empresa %s adicionada com %d ações a %.2f cada.\n"), nomeEmpresa, numAcoes, precoAcao);
+        UpdateSharedData(state);
     }
     else {
         _stprintf_s(response, MSG_TAM, TEXT("Limite de empresas atingido.\n"));
@@ -103,6 +110,7 @@ void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice
         if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
             state->empresas[i].precoAcao = newPrice;
             _stprintf_s(response, MSG_TAM, TEXT("Preço da empresa %s alterado para %.2f.\n"), nomeEmpresa, newPrice);
+            UpdateSharedData(state);
             return;
         }
     }
@@ -178,7 +186,6 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         TCHAR response[MSG_TAM];
         CloseSystem(stateServ, response);
         _tprintf(TEXT("%s\n"), response);
-        // Não usar ExitProcess, apenas marcar o estado para que o loop possa encerrar graciosamente
         exit(0); // Sair do programa completamente
     }
     else {
@@ -263,11 +270,15 @@ int _tmain(void) {
 
     InitializeServerState(&stateServ);
 
-    PrintMenu();
 
-    _setmode(_fileno(stdout), _O_WTEXT);
+
+#ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
+    _setmode(_fileno(stdout), _O_WTEXT);
     _setmode(_fileno(stderr), _O_WTEXT);
+#endif
+
+    PrintMenu();
 
     HANDLE hAdminThread = CreateThread(
         NULL, 0,
@@ -278,6 +289,37 @@ int _tmain(void) {
 
     if (hAdminThread == NULL) {
         PrintLastError(TEXT("AdminCommandThread creation failed"));
+        return -1;
+    }
+
+    // Criação de memória partilhada e sincronização
+    hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(SharedData), SHARED_MEM_NAME);
+    if (hMapFile == NULL) {
+        PrintLastError(TEXT("CreateFileMapping failed"));
+        return -1;
+    }
+
+    pSharedData = (SharedData*)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedData));
+    if (pSharedData == NULL) {
+        PrintLastError(TEXT("MapViewOfFile failed"));
+        CloseHandle(hMapFile);
+        return -1;
+    }
+
+    hMutex = CreateMutex(NULL, FALSE, MUTEX_NAME);
+    if (hMutex == NULL) {
+        PrintLastError(TEXT("CreateMutex failed"));
+        UnmapViewOfFile(pSharedData);
+        CloseHandle(hMapFile);
+        return -1;
+    }
+
+    hEvent = CreateEvent(NULL, TRUE, FALSE, EVENT_NAME);
+    if (hEvent == NULL) {
+        PrintLastError(TEXT("CreateEvent failed"));
+        CloseHandle(hMutex);
+        UnmapViewOfFile(pSharedData);
+        CloseHandle(hMapFile);
         return -1;
     }
 
