@@ -28,6 +28,7 @@ typedef struct {
     HANDLE writeEvent;
     BOOL deveContinuar;
     BOOL readerAtivo;
+    BOOL ligado;
 } ClientState;
 
 typedef struct {
@@ -51,6 +52,7 @@ typedef struct {
     HANDLE clientPipes[MAXCLIENTES]; // Array de handles para os pipes dos clientes
     HANDLE writeReady;               // Handle para o evento de escrita pronta
     HANDLE readEvent;
+    BOOL running;
 } ServerState;
 
 
@@ -85,6 +87,10 @@ void PrintLastError(const TCHAR* msg);
 void PrintMenu();
 
 void BolsaCommands(ServerState* stateServ, TCHAR* command);
+
+void PrintMenuCliente();
+
+void ClientCommands(ClientState* stateCli, TCHAR* command);
 
 //void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response);
 //void ListCompanies(const ServerState* state, TCHAR* response);

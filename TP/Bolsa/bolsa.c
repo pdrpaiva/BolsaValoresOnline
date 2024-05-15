@@ -3,9 +3,80 @@
 #include <fcntl.h>
 #include "../utils.h"
 
-
 HANDLE hMapFile, hMutex, hEvent;
 SharedData* pSharedData;
+
+void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
+    FILE* file;
+    _tfopen_s(&file, filename, TEXT("r"));
+    if (!file) {
+        _tprintf(TEXT("Erro ao abrir o ficheiro de utilizadores.\n"));
+        return;
+    }
+
+    TCHAR username[50], password[50];
+    double saldo;
+    while (_ftscanf_s(file, TEXT("%49s %49s %lf"), username, (unsigned)_countof(username), password, (unsigned)_countof(password), &saldo) == 3) {
+        if (state->numUtilizadores < MAX_UTILIZADORES) {
+            wcscpy_s(state->utilizadores[state->numUtilizadores].username, _countof(state->utilizadores[state->numUtilizadores].username), username);
+            state->utilizadores[state->numUtilizadores].saldo = saldo;
+            state->utilizadores[state->numUtilizadores].isOnline = FALSE;
+            state->numUtilizadores++;
+        }
+        else {
+            _tprintf(TEXT("Número máximo de utilizadores atingido.\n"));
+            break;
+        }
+    }
+
+    fclose(file);
+}
+
+void CleanUpServer(ServerState* stateServ) {
+    // Fechar todos os handles dos clientes
+    for (int i = 0; i < MAXCLIENTES; ++i) {
+        if (stateServ->clientPipes[i] != NULL) {
+            DisconnectNamedPipe(stateServ->clientPipes[i]);
+            CloseHandle(stateServ->clientPipes[i]);
+            stateServ->clientPipes[i] = NULL;
+        }
+    }
+
+    // Fechar eventos
+    if (stateServ->writeReady) {
+        CloseHandle(stateServ->writeReady);
+    }
+    if (stateServ->readEvent) {
+        CloseHandle(stateServ->readEvent);
+    }
+
+    // Fechar handles de memória partilhada
+    if (pSharedData) {
+        UnmapViewOfFile(pSharedData);
+    }
+    if (hMapFile) {
+        CloseHandle(hMapFile);
+    }
+    if (hMutex) {
+        CloseHandle(hMutex);
+    }
+    if (hEvent) {
+        CloseHandle(hEvent);
+    }
+}
+
+void CloseSystem(ServerState* state, TCHAR* response) {
+    _tcscpy_s(response, MSG_TAM, TEXT("Sistema encerrado.\n"));
+    for (int i = 0; i < MAXCLIENTES; ++i) {
+        if (state->clientPipes[i] != NULL) {
+            DisconnectNamedPipe(state->clientPipes[i]);
+            CloseHandle(state->clientPipes[i]);
+        }
+    }
+
+    state->running = FALSE;
+
+}
 
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
@@ -16,17 +87,19 @@ void InitializeServerState(ServerState* stateServ) {
     stateServ->numEmpresas = 0;
     stateServ->numUtilizadores = 0;
     stateServ->tradingPaused = FALSE;
+    stateServ->running = TRUE;
+
 }
 
 void PrintMenu() {
-    _tprintf(TEXT("\n--- Comandos da Bolsa ---\n\n"));
-    _tprintf(TEXT("addc <nome-empresa> <número-ações> <preço-ação> - Adicionar empresa\n"));
-    _tprintf(TEXT("listc - Listar todas as empresas\n"));
-    _tprintf(TEXT("stock <nome-empresa> <novo-preço> - Alterar preço das ações\n"));
-    _tprintf(TEXT("users - Listar utilizadores\n"));
-    _tprintf(TEXT("pause <segundos> - Pausar operações\n"));
-    _tprintf(TEXT("close - Encerrar sistema\n"));
-    _tprintf(TEXT("Digite um comando:\n"));
+    _tprintf(TEXT("\n------------------------------- Comandos da Bolsa -------------------------------\n\n"));
+    _tprintf(TEXT("- Adicionar empresa         -   addc <nome-empresa> <número-ações> <preço-ação>\n"));
+    _tprintf(TEXT("- Listar todas as empresas  -   listc\n"));
+    _tprintf(TEXT("- Alterar preço das ações   -   stock <nome-empresa> <novo-preço>\n"));
+    _tprintf(TEXT("- Listar utilizadores       -   users\n"));
+    _tprintf(TEXT("- Pausar operações          -   pause <segundos>\n"));
+    _tprintf(TEXT("- Encerrar sistema          -   close\n"));
+    _tprintf(TEXT("\n---------------------------------------------------------------------------------\n"));
 }
 
 void PrintLastError(const TCHAR* msg) {
@@ -121,7 +194,9 @@ void ListUsers(const ServerState* state, TCHAR* response) {
     TCHAR buffer[MSG_TAM];
     _stprintf_s(response, MSG_TAM, TEXT("Utilizadores na Bolsa:\n"));
     for (int i = 0; i < state->numUtilizadores; ++i) {
-        _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f, Online: %s\n"), state->utilizadores[i].username, state->utilizadores[i].saldo, state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Não"));
+        _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f, Online: %s\n"),
+            state->utilizadores[i].username, state->utilizadores[i].saldo,
+            state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Não"));
         _tcscat_s(response, MSG_TAM, buffer);
     }
 }
@@ -134,18 +209,11 @@ void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     _tcscpy_s(response, MSG_TAM, TEXT("Operações de compra e venda retomadas.\n"));
 }
 
-void CloseSystem(ServerState* state, TCHAR* response) {
-    _tcscpy_s(response, MSG_TAM, TEXT("Sistema encerrado.\n"));
-    for (int i = 0; i < MAXCLIENTES; ++i) {
-        if (state->clientPipes[i] != NULL) {
-            DisconnectNamedPipe(state->clientPipes[i]);
-            CloseHandle(state->clientPipes[i]);
-        }
+void ProcessAdminCommand(ServerState* stateServ, TCHAR* command, BOOL* closeFlag) {
+    if (_tcscmp(command, TEXT("comandos")) == 0) {
+        PrintMenu();
     }
-}
-
-void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
-    if (_tcsncmp(command, TEXT("addc"), 4) == 0) {
+    else if (_tcsncmp(command, TEXT("addc"), 4) == 0) {
         TCHAR nomeEmpresa[50];
         int numAcoes;
         double precoAcao;
@@ -186,7 +254,7 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         TCHAR response[MSG_TAM];
         CloseSystem(stateServ, response);
         _tprintf(TEXT("%s\n"), response);
-        exit(0); // Sair do programa completamente
+        *closeFlag = TRUE;
     }
     else {
         _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
@@ -202,7 +270,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     OVERLAPPED overl = { 0 };
     overl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
-    while (1) {
+    while (stateServ->running) {
         ZeroMemory(&msgRequest, sizeof(Msg));
         ResetEvent(overl.hEvent);
         fSuccess = ReadFile(hPipe, &msgRequest, sizeof(Msg), &bytesRead, &overl);
@@ -254,23 +322,29 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
     ServerState* stateServ = (ServerState*)lpvParam;
     TCHAR command[MSG_TAM];
+    BOOL closeFlag = FALSE;
 
-    while (1) {
+    while (!closeFlag) {
         _tprintf(TEXT("\nDigite um comando administrativo: "));
         _fgetts(command, MSG_TAM, stdin);
         command[_tcslen(command) - 1] = '\0'; // Remover o caractere de nova linha
-        ProcessAdminCommand(stateServ, command);
+
+
+
     }
 
     return 0;
 }
 
-int _tmain(void) {
+int _tmain(int argc, TCHAR* argv[]) {
+    if (argc < 2) {
+        _tprintf(TEXT("Uso: %s <ficheiro_utilizadores>\n"), argv[0]);
+        return 1;
+    }
+
     ServerState stateServ;
-
     InitializeServerState(&stateServ);
-
-
+    ReadUsersFromFile(&stateServ, argv[1]);
 
 #ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -340,7 +414,7 @@ int _tmain(void) {
 
         if (hPipe == INVALID_HANDLE_VALUE) {
             PrintLastError(TEXT("CreateNamedPipe failed"));
-            return -1;
+            break;
         }
 
         BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
@@ -359,7 +433,8 @@ int _tmain(void) {
 
             if (hThread == NULL) {
                 PrintLastError(TEXT("Thread creation failed"));
-                return -1;
+                CloseHandle(hPipe);
+                break;
             }
             else {
                 CloseHandle(hThread);
@@ -370,7 +445,10 @@ int _tmain(void) {
         }
     }
 
+    WaitForSingleObject(hAdminThread, INFINITE);
     CloseHandle(hAdminThread);
+
+    CleanUpServer(&stateServ);
 
     return 0;
 }

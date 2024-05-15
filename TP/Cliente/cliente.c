@@ -63,7 +63,7 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
         // Verifica se foram lidos bytes da mensagem
         if (bytesRead > 0) {
             // Imprime a mensagem recebida do servidor
-            _tprintf(TEXT("\nReceived message: %s\n"), fromServer.msg);
+            //_tprintf(TEXT("\nReceived message: %s\n"), fromServer.msg);
         }
         else {
             // Imprime uma mensagem se não houver mais mensagens para ler
@@ -76,6 +76,68 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
     return 0;
 }
 
+void ClientCommands(ClientState* stateCli, TCHAR* command) {
+    if (stateCli->ligado) {
+        if (_tcscmp(command, TEXT("comandos")) == 0) {
+            PrintMenuCliente();
+        }
+        else if (_tcscmp(command, TEXT("listc")) == 0) {
+            //TCHAR response[MSG_TAM];
+            //ListCompanies(stateServ, response);
+            _tprintf(TEXT("listc\n"));
+        }
+        else if (_tcsncmp(command, TEXT("buy"), 3) == 0) {
+            TCHAR nomeEmpresa[50];
+            int nAcoes;
+            if (_stscanf_s(command, TEXT("buy %49s %d"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &nAcoes) == 2) {
+                _tprintf(TEXT("buy\n"));
+            }
+        }
+        else if (_tcscmp(command, TEXT("sell"), 4) == 0) {
+            TCHAR nomeEmpresa[50];
+            int nAcoes;
+            if (_stscanf_s(command, TEXT("sell %49s %d"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &nAcoes) == 2) {
+                _tprintf(TEXT("sell\n"));
+            }
+        }
+        else if (_tcscmp(command, TEXT("balance")) == 0) {
+            //TCHAR response[MSG_TAM];
+            //ListCompanies(stateServ, response);
+            _tprintf(TEXT("balance\n"));
+        }
+        else {
+            _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
+        }
+    }
+    else {
+        if (_tcsncmp(command, TEXT("login"), 5) == 0) {
+            TCHAR username[50];
+            TCHAR password[50];
+            if (_stscanf_s(command, TEXT("login %49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
+                _tprintf(TEXT("Login realizado com sucesso.\n"));
+                stateCli->ligado = TRUE;
+                PrintMenuCliente();
+            }
+            else {
+                _tprintf(TEXT("Erro no login. login <username > <password>\n"));
+            }
+        }
+        else {
+            _tprintf(TEXT("Comando inválido. Por favor, faça login para ter acesso a todos os comandos.\n"));
+        }
+    }
+}
+
+void PrintMenuCliente() {
+    _tprintf(TEXT("\n-------------------------- Comandos do Cliente --------------------------\n\n"));
+    _tprintf(TEXT("- Listar todas as empresas  -   listc\n"));
+    _tprintf(TEXT("- Comprar ações             -   buy <nome-empresa> <número-ações>\n"));
+    _tprintf(TEXT("- Vender ações              -   sell <nome-empresa> <número-ações>\n"));
+    _tprintf(TEXT("- Consultar saldo           -   balance\n"));
+    _tprintf(TEXT("- Sair da aplicação         -   exit\n"));
+    _tprintf(TEXT("\n-------------------------------------------------------------------------\n"));
+}
+
 int _tmain(int argc, LPTSTR argv[]) {
     // Declara e inicializa o estado do cliente
     ClientState stateCli;
@@ -84,6 +146,7 @@ int _tmain(int argc, LPTSTR argv[]) {
     stateCli.writeEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     stateCli.deveContinuar = TRUE;
     stateCli.readerAtivo = TRUE;
+    stateCli.ligado = FALSE;
 
     // Verifica se a criação dos eventos foi bem-sucedida
     if (stateCli.readEvent == NULL || stateCli.writeEvent == NULL) {
@@ -166,13 +229,12 @@ int _tmain(int argc, LPTSTR argv[]) {
         return -1;
     }
 
-    _tprintf(TEXT("Connection established: Type 'exit' to quit.\n"));
-    
+    _tprintf(TEXT("\nBem-vindo! Faça 'login usr pw' para começar ou 'exit' para sair...\n"));
+
     // Loop principal do cliente para enviar mensagens ao servidor
     while (stateCli.deveContinuar) {
         // Lê a entrada do usuário
         readTChars(MsgToSend.msg, MSG_TAM);
-
         // Verifica se o usuário deseja sair do programa
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Exiting...\n"));
@@ -183,6 +245,7 @@ int _tmain(int argc, LPTSTR argv[]) {
             CloseHandle(stateCli.hPipe);
             break;
         }
+        ClientCommands(&stateCli, MsgToSend.msg);
 
         // Reseta a estrutura OVERLAPPED para uma nova operação de escrita assíncrona
         ZeroMemory(&OverlWr, sizeof(OverlWr));
@@ -206,7 +269,7 @@ int _tmain(int argc, LPTSTR argv[]) {
             _tprintf(TEXT("WriteFile error or incomplete write. GLE=%d\n"), GetLastError());
         }
         else {
-            _tprintf(TEXT("Message sent: '%s'\n"), MsgToSend.msg);
+            //_tprintf(TEXT("Message sent: '%s'\n"), MsgToSend.msg);
         }
     }
 
