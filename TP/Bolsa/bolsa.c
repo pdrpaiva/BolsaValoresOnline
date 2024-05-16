@@ -3,13 +3,8 @@
 #include <fcntl.h>
 #include "../utils.h"
 
-
 HANDLE hMapFile, hMutex, hEvent;
 SharedData* pSharedData;
-
-
-
-
 
 void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     FILE* file;
@@ -37,8 +32,6 @@ void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     fclose(file);
 }
 
-
-
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
         stateServ->clientPipes[i] = NULL;
@@ -48,6 +41,9 @@ void InitializeServerState(ServerState* stateServ) {
     stateServ->numEmpresas = 0;
     stateServ->numUtilizadores = 0;
     stateServ->tradingPaused = FALSE;
+    stateServ->closeFlag = FALSE;
+    stateServ->closeMutex = CreateMutex(NULL, FALSE, NULL);
+    stateServ->closeEvent = CreateEvent(NULL, TRUE, FALSE, CLOSE_EVENT_NAME); // Evento para sinalizar encerramento
 }
 
 void PrintMenu() {
@@ -78,15 +74,18 @@ void PrintLastError(const TCHAR* msg) {
     do { *p-- = 0; } while ((p >= sysMsg) && ((*p == '.') || (*p < 33)));
 
     _tprintf(TEXT("\n%s: %s (Error %d)\n"), msg, sysMsg, eNum);
+    _tprintf(TEXT("\n%s: %s (Error %d)\n"), msg, sysMsg, eNum);
 }
 
-void adicionaCliente(ServerState* stateServ, HANDLE hCli) {
+int adicionaCliente(ServerState* stateServ, HANDLE hCli) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
         if (stateServ->clientPipes[i] == NULL) {
             stateServ->clientPipes[i] = hCli;
-            break;
+            return i;
         }
     }
+
+    return -1;
 }
 
 void removeCliente(ServerState* stateServ, HANDLE hCli) {
@@ -159,7 +158,6 @@ void ListUsers(const ServerState* state, TCHAR* response) {
         _tcscat_s(response, MSG_TAM, buffer);
     }
 }
-    
 
 void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     state->tradingPaused = TRUE;
@@ -168,15 +166,34 @@ void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     state->tradingPaused = FALSE;
     _tcscpy_s(response, MSG_TAM, TEXT("Operações de compra e venda retomadas.\n"));
 }
-
 void CloseSystem(ServerState* state, TCHAR* response) {
     _tcscpy_s(response, MSG_TAM, TEXT("Sistema encerrado.\n"));
+    SetEvent(state->closeEvent); // Sinalizar o evento de encerramento
+
+    // Enviar mensagem especial de encerramento para os clientes
     for (int i = 0; i < MAXCLIENTES; ++i) {
-        if (state->clientPipes[i] != NULL) {
-            DisconnectNamedPipe(state->clientPipes[i]);
-            CloseHandle(state->clientPipes[i]);
+        HANDLE hPipe = state->clientPipes[i];
+        if (hPipe != NULL) {
+            // Enviar mensagem de encerramento
+            Msg msg;
+            _tcscpy_s(msg.msg, MSG_TAM, TEXT("Bolsa encerrada."));
+            DWORD bytesWritten;
+            BOOL fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &bytesWritten, NULL);
+            if (!fSuccess || bytesWritten == 0) {
+                // Se houver falha ao enviar a mensagem, fecha a conexão
+                DisconnectNamedPipe(hPipe);
+                CloseHandle(hPipe);
+                state->clientPipes[i] = NULL;
+            }
         }
     }
+
+    // Esperar que todos os clientes desconectem-se
+    Sleep(1000);
+
+    // Fechar eventos do servidor
+    CloseHandle(state->readEvent);
+    state->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 
 void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
@@ -221,7 +238,6 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         TCHAR response[MSG_TAM];
         CloseSystem(stateServ, response);
         _tprintf(TEXT("%s\n"), response);
-        exit(0); // Sair do programa completamente
     }
     else {
         _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
@@ -229,8 +245,7 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
 }
 
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
-    ServerState* stateServ = (ServerState*)lpvParam;
-    HANDLE hPipe = (HANDLE)stateServ->clientPipes[0]; // Use the first pipe for simplicity
+    HANDLE hPipe = (HANDLE)lpvParam; // Cada thread recebe seu próprio handle de pipe
     Msg msgRequest, msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;
@@ -266,7 +281,6 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
         if (_tcscmp(msgRequest.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Client requested disconnect.\n"));
-            removeCliente(stateServ, hPipe);
             break;
         }
 
@@ -286,6 +300,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     return 0;
 }
 
+
 DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
     ServerState* stateServ = (ServerState*)lpvParam;
     TCHAR command[MSG_TAM];
@@ -295,14 +310,13 @@ DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
         _fgetts(command, MSG_TAM, stdin);
         command[_tcslen(command) - 1] = '\0'; // Remover o caractere de nova linha
         ProcessAdminCommand(stateServ, command);
+
     }
 
     return 0;
 }
 
 int _tmain(int argc, TCHAR* argv[]) {
-
-
     if (argc < 2) {
         _tprintf(TEXT("Uso: %s <ficheiro_utilizadores>\n"), argv[0]);
         return 1;
@@ -311,7 +325,6 @@ int _tmain(int argc, TCHAR* argv[]) {
     ServerState stateServ;
     InitializeServerState(&stateServ);
     ReadUsersFromFile(&stateServ, argv[1]);
-
 
 #ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -384,22 +397,69 @@ int _tmain(int argc, TCHAR* argv[]) {
             return -1;
         }
 
-        BOOL fConnected = ConnectNamedPipe(hPipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+        // Usar OVERLAPPED para ConnectNamedPipe
+        OVERLAPPED ol = { 0 };
+        ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        if (ol.hEvent == NULL) {
+            PrintLastError(TEXT("CreateEvent failed for OVERLAPPED"));
+            CloseHandle(hPipe);
+            return -1;
+        }
+
+        BOOL fConnected = ConnectNamedPipe(hPipe, &ol) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+        if (!fConnected) {
+            if (GetLastError() == ERROR_IO_PENDING) {
+                HANDLE waitHandles[] = { ol.hEvent, stateServ.closeEvent };
+                DWORD dwWait = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+                if (dwWait == WAIT_OBJECT_0) {
+                    fConnected = TRUE;
+                }
+                else if (dwWait == WAIT_OBJECT_0 + 1) {
+                    _tprintf(TEXT("Encerrando servidor principal.\n"));
+                    CloseHandle(hPipe);
+                    CloseHandle(ol.hEvent);
+                    break;
+                }
+                else {
+                    PrintLastError(TEXT("WaitForMultipleObjects failed"));
+                    CloseHandle(hPipe);
+                    CloseHandle(ol.hEvent);
+                    return -1;
+                }
+            }
+            else {
+                PrintLastError(TEXT("ConnectNamedPipe failed"));
+                CloseHandle(hPipe);
+                CloseHandle(ol.hEvent);
+                return -1;
+            }
+        }
 
         if (fConnected) {
             _tprintf(TEXT("\nClient connected. Creating a thread for it."));
 
-            stateServ.clientPipes[0] = hPipe; // Use the first pipe for simplicity
+            // Encontrar um slot vazio para o novo cliente
+            int slot = adicionaCliente(&stateServ, hPipe);
+
+            if (slot == -1) {
+                _tprintf(TEXT("Número máximo de clientes atingido.\n"));
+                DisconnectNamedPipe(hPipe);
+                CloseHandle(hPipe);
+                CloseHandle(ol.hEvent);
+                continue;
+            }
 
             HANDLE hThread = CreateThread(
                 NULL, 0,
                 InstanceThread,
-                &stateServ,
+                (LPVOID)hPipe, // Passar o handle do pipe para a thread
                 0, NULL
             );
 
             if (hThread == NULL) {
                 PrintLastError(TEXT("Thread creation failed"));
+                CloseHandle(hPipe);
+                CloseHandle(ol.hEvent);
                 return -1;
             }
             else {
@@ -408,10 +468,34 @@ int _tmain(int argc, TCHAR* argv[]) {
         }
         else {
             CloseHandle(hPipe);
+            CloseHandle(ol.hEvent);
+        }
+
+        // Verificar se o sistema deve ser fechado
+        if (WaitForSingleObject(stateServ.closeEvent, 0) == WAIT_OBJECT_0) {
+            _tprintf(TEXT("Encerrando servidor principal.\n"));
+            break;
         }
     }
 
+    // Encerrar todos os clientes restantes
+    for (int i = 0; i < MAXCLIENTES; ++i) {
+        if (stateServ.clientPipes[i] != NULL) {
+            DisconnectNamedPipe(stateServ.clientPipes[i]);
+            CloseHandle(stateServ.clientPipes[i]);
+            stateServ.clientPipes[i] = NULL;
+        }
+    }
+
+    ReleaseMutex(stateServ.closeMutex);
     CloseHandle(hAdminThread);
+    CloseHandle(stateServ.closeEvent);
+    CloseHandle(stateServ.closeMutex);
+
+    UnmapViewOfFile(pSharedData);
+    CloseHandle(hMapFile);
+    CloseHandle(hMutex);
+    CloseHandle(hEvent);
 
     return 0;
 }

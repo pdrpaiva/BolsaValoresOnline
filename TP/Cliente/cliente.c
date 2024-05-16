@@ -4,75 +4,58 @@
 #include <io.h>
 #include <fcntl.h>
 
-//void readTChars(TCHAR* p, int maxChars) {
-//    size_t len;
-//    _fgetts(p, maxChars, stdin);
-//    len = _tcslen(p);
-//    if (p[len - 1] == TEXT('\n')) {
-//        p[len - 1] = TEXT('\0');
-//    }
-//}
+void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent) {
+    size_t len = 0;
+    while (TRUE) {
+        DWORD result = WaitForSingleObject(shutdownEvent, 100); // Espera por 100ms
+        if (result == WAIT_OBJECT_0) {
+            return; // Se o evento de shutdown foi sinalizado, sair
+        }
+        if (_kbhit()) { // Se houver entrada do usuário
+            _fgetts(p, maxChars, stdin);
+            len = _tcslen(p);
+            if (p[len - 1] == TEXT('\n')) {
+                p[len - 1] = TEXT('\0');
+            }
+            return;
+        }
+    }
+}
 
 DWORD WINAPI ThreadClientReader(LPVOID lparam) {
-    // Casting do parâmetro para um ponteiro para ClientState
     ClientState* stateCli = (ClientState*)lparam;
-
-    // Variável para armazenar a mensagem recebida do servidor
     Msg fromServer;
-
-    // Variáveis para acompanhar o número de bytes lidos e o sucesso da operação de leitura
     DWORD bytesRead = 0;
     BOOL fSuccess = FALSE;
-
-    // Estrutura de dados para operações assíncronas de I/O
     OVERLAPPED overlRd = { 0 };
-
-    // Configura o evento associado à operação de leitura assíncrona
     overlRd.hEvent = stateCli->readEvent;
 
-    // Loop principal da thread
-    while (stateCli->deveContinuar) {
-        // Limpa a estrutura da mensagem recebida
+    while (1) {
         ZeroMemory(&fromServer, sizeof(fromServer));
-
-        // Reinicia o evento associado à operação de leitura
         ResetEvent(stateCli->readEvent);
+        fSuccess = ReadFile(stateCli->hPipe, &fromServer, Msg_Size, &bytesRead, &overlRd);
 
-        // Inicia a operação de leitura assíncrona
-        fSuccess = ReadFile(
-            stateCli->hPipe,
-            &fromServer,
-            Msg_Size,
-            &bytesRead,
-            &overlRd
-        );
-
-        // Aguarda até que o evento associado à operação de leitura seja sinalizado
-        WaitForSingleObject(stateCli->readEvent, INFINITE);
-
-        // Verifica se a operação de leitura foi bem-sucedida ou está pendente
-        if (!fSuccess && GetLastError() != ERROR_IO_PENDING) {
-            // Imprime uma mensagem de erro se a operação de leitura falhar
-            _tprintf(TEXT("\nError reading from pipe.\n"));
-            break; // Sai do loop se houver um erro
+        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+            WaitForSingleObject(stateCli->readEvent, INFINITE);
+            fSuccess = GetOverlappedResult(stateCli->hPipe, &overlRd, &bytesRead, FALSE);
         }
 
-        // Obtém o resultado da operação de leitura assíncrona
-        GetOverlappedResult(stateCli->hPipe, &overlRd, &bytesRead, FALSE);
-
-        // Verifica se foram lidos bytes da mensagem
-        if (bytesRead > 0) {
-            // Imprime a mensagem recebida do servidor
-            //_tprintf(TEXT("\nReceived message: %s\n"), fromServer.msg);
+        if (fSuccess && bytesRead > 0) {
+            _tprintf(TEXT("\nReceived message: %s\n"), fromServer.msg);
+            if (_tcscmp(fromServer.msg, TEXT("Bolsa encerrada.")) == 0) {
+                _tprintf(TEXT("Servidor está encerrando. Cliente irá desconectar...\n"));
+                SetEvent(stateCli->shutdownEvent);
+                break;
+            }
         }
         else {
-            // Imprime uma mensagem se não houver mais mensagens para ler
-            _tprintf(TEXT("\nNo more messages. Exiting.\n"));
-            break; // Sai do loop se não houver mais mensagens
+            if (GetLastError() != ERROR_IO_PENDING) {
+                _tprintf(TEXT("\nError reading from pipe.\n"));
+                break;
+            }
         }
     }
 
-    // Retorna 0 para indicar o término da thread
     return 0;
 }
 
@@ -82,8 +65,6 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
             PrintMenuCliente();
         }
         else if (_tcscmp(command, TEXT("listc")) == 0) {
-            //TCHAR response[MSG_TAM];
-            //ListCompanies(stateServ, response);
             _tprintf(TEXT("listc\n"));
         }
         else if (_tcsncmp(command, TEXT("buy"), 3) == 0) {
@@ -93,7 +74,7 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
                 _tprintf(TEXT("buy\n"));
             }
         }
-        else if (_tcscmp(command, TEXT("sell"), 4) == 0) {
+        else if (_tcsncmp(command, TEXT("sell"), 4) == 0) {
             TCHAR nomeEmpresa[50];
             int nAcoes;
             if (_stscanf_s(command, TEXT("sell %49s %d"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &nAcoes) == 2) {
@@ -101,8 +82,6 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
             }
         }
         else if (_tcscmp(command, TEXT("balance")) == 0) {
-            //TCHAR response[MSG_TAM];
-            //ListCompanies(stateServ, response);
             _tprintf(TEXT("balance\n"));
         }
         else {
@@ -138,18 +117,24 @@ void PrintMenuCliente() {
     _tprintf(TEXT("\n-------------------------------------------------------------------------\n"));
 }
 
+void CloseClientPipe(ClientState* stateCli) {
+    if (stateCli->hPipe != INVALID_HANDLE_VALUE) {
+        CloseHandle(stateCli->hPipe);
+        stateCli->hPipe = INVALID_HANDLE_VALUE;
+    }
+}
+
 int _tmain(int argc, LPTSTR argv[]) {
-    // Declara e inicializa o estado do cliente
     ClientState stateCli;
     stateCli.hPipe = INVALID_HANDLE_VALUE;
     stateCli.readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     stateCli.writeEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    stateCli.shutdownEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     stateCli.deveContinuar = TRUE;
     stateCli.readerAtivo = TRUE;
     stateCli.ligado = FALSE;
 
-    // Verifica se a criação dos eventos foi bem-sucedida
-    if (stateCli.readEvent == NULL || stateCli.writeEvent == NULL) {
+    if (stateCli.readEvent == NULL || stateCli.writeEvent == NULL || stateCli.shutdownEvent == NULL) {
         _tprintf(TEXT("Failed to create one or more events.\n"));
         return 1;
     }
@@ -168,62 +153,33 @@ int _tmain(int argc, LPTSTR argv[]) {
     _setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
-    // Loop principal do cliente
     while (1) {
-        // Tenta se conectar ao pipe nomeado do servidor
-        stateCli.hPipe = CreateFile(
-            lpszPipename,                               // Nome do pipe
-            GENERIC_READ | GENERIC_WRITE,               // Direitos de acesso
-            FILE_SHARE_READ | FILE_SHARE_WRITE,         // Compartilhamento de arquivo
-            NULL,                                       // Atributos de segurança (padrão)
-            OPEN_EXISTING,                              // Abre o pipe existente
-            FILE_FLAG_OVERLAPPED,                       // Habilita operações assíncronas
-            NULL                                        // Modo de criação (padrão)
-        );
+        stateCli.hPipe = CreateFile(lpszPipename, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 
-        // Verifica se a conexão foi estabelecida com sucesso
         if (stateCli.hPipe != INVALID_HANDLE_VALUE)
             break;
 
-        // Verifica se ocorreu um erro ao tentar abrir o pipe
         if (GetLastError() != ERROR_PIPE_BUSY) {
             _tprintf(TEXT("Error: Pipe not available. GLE=%d\n"), GetLastError());
             return -1;
         }
 
-        // Aguarda até que o pipe esteja disponível para conexão
         if (!WaitNamedPipe(lpszPipename, 3000)) {
             _tprintf(TEXT("Waited for 3 seconds, giving up.\n"));
             return -1;
         }
     }
 
-    // Configura o modo de leitura do pipe
     dwMode = PIPE_READMODE_MESSAGE;
-    fSuccess = SetNamedPipeHandleState(
-        stateCli.hPipe,
-        &dwMode,
-        NULL,
-        NULL
-    );
+    fSuccess = SetNamedPipeHandleState(stateCli.hPipe, &dwMode, NULL, NULL);
 
-    // Verifica se a configuração do modo de leitura foi bem-sucedida
     if (!fSuccess) {
         _tprintf(TEXT("SetNamedPipeHandleState failed. GLE=%d\n"), GetLastError());
         return -1;
     }
 
-    // Cria uma nova thread para lidar com a leitura assíncrona das mensagens do servidor
-    hThread = CreateThread(
-        NULL,
-        0,
-        ThreadClientReader,
-        &stateCli,
-        0,
-        &dwThreadId
-    );
+    hThread = CreateThread(NULL, 0, ThreadClientReader, &stateCli, 0, &dwThreadId);
 
-    // Verifica se a criação da thread foi bem-sucedida
     if (hThread == NULL) {
         _tprintf(TEXT("Failed to create the reader thread. GLE=%d\n"), GetLastError());
         return -1;
@@ -231,58 +187,64 @@ int _tmain(int argc, LPTSTR argv[]) {
 
     _tprintf(TEXT("\nBem-vindo! Faça 'login usr pw' para começar ou 'exit' para sair...\n"));
 
-    // Loop principal do cliente para enviar mensagens ao servidor
-    while (stateCli.deveContinuar) {
-        // Lê a entrada do usuário
-        readTChars(MsgToSend.msg, MSG_TAM);
-        // Verifica se o usuário deseja sair do programa
+    HANDLE events[] = { stateCli.shutdownEvent };
+
+    while (1) {
+        if (WaitForSingleObject(stateCli.shutdownEvent, 0) == WAIT_OBJECT_0) {
+            break;
+        }
+
+        readTCharsWithTimeout(MsgToSend.msg, MSG_TAM, stateCli.shutdownEvent);
+
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Exiting...\n"));
-            // Define a flag de controle para encerrar o loop principal
             stateCli.deveContinuar = FALSE;
-
-            // Fecha o handle do pipe
-            CloseHandle(stateCli.hPipe);
+            CloseClientPipe(&stateCli);
             break;
         }
         ClientCommands(&stateCli, MsgToSend.msg);
 
-        // Reseta a estrutura OVERLAPPED para uma nova operação de escrita assíncrona
+        // Verificar o shutdownEvent antes de iniciar a operação de escrita
+        if (WaitForSingleObject(stateCli.shutdownEvent, 0) == WAIT_OBJECT_0) {
+            break;
+        }
+
         ZeroMemory(&OverlWr, sizeof(OverlWr));
         OverlWr.hEvent = stateCli.writeEvent;
         ResetEvent(stateCli.writeEvent);
 
-        // Inicia uma operação de escrita assíncrona
-        fSuccess = WriteFile(
-            stateCli.hPipe,
-            &MsgToSend,
-            Msg_Size,
-            &cWritten,
-            &OverlWr
-        );
+        fSuccess = WriteFile(stateCli.hPipe, &MsgToSend, Msg_Size, &cWritten, &OverlWr);
 
-        // Aguarda o término da operação de escrita
-        WaitForSingleObject(stateCli.writeEvent, INFINITE);
+        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+            HANDLE writeEvents[] = { stateCli.writeEvent, stateCli.shutdownEvent };
+            DWORD dwWait = WaitForMultipleObjects(2, writeEvents, FALSE, INFINITE);
 
-        // Verifica se a operação de escrita foi concluída com sucesso
-        if (!GetOverlappedResult(stateCli.hPipe, &OverlWr, &cWritten, FALSE) || cWritten < Msg_Size) {
+            if (dwWait == WAIT_OBJECT_0 + 1) {
+                // Se o evento de shutdown for sinalizado, sair do loop
+                break;
+            }
+
+            fSuccess = GetOverlappedResult(stateCli.hPipe, &OverlWr, &cWritten, FALSE);
+        }
+
+        if (!fSuccess || cWritten < Msg_Size) {
             _tprintf(TEXT("WriteFile error or incomplete write. GLE=%d\n"), GetLastError());
         }
-        else {
-            //_tprintf(TEXT("Message sent: '%s'\n"), MsgToSend.msg);
+
+        // Verificar o shutdownEvent imediatamente após a operação de escrita
+        if (WaitForSingleObject(stateCli.shutdownEvent, 0) == WAIT_OBJECT_0) {
+            break;
         }
     }
 
-    // Aguarda o término da thread de leitura
+    SetEvent(stateCli.shutdownEvent); // Garantir que o ThreadClientReader termine
     WaitForSingleObject(hThread, INFINITE);
-
-    // Fecha o handle da thread
     CloseHandle(hThread);
 
-    // Fecha os handles dos eventos e do pipe
     CloseHandle(stateCli.readEvent);
     CloseHandle(stateCli.writeEvent);
-    CloseHandle(stateCli.hPipe);
+    CloseHandle(stateCli.shutdownEvent);
+    CloseClientPipe(&stateCli);
 
     return 0;
 }

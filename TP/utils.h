@@ -14,9 +14,7 @@
 #define SHARED_MEM_NAME _T("BolsaSharedMemory")
 #define MUTEX_NAME _T("BolsaMutex")
 #define EVENT_NAME _T("BolsaEvent")
-
-
-
+#define CLOSE_EVENT_NAME _T("BolsaCloseEvent")
 
 typedef struct {
     TCHAR msg[MSG_TAM];
@@ -26,6 +24,7 @@ typedef struct {
     HANDLE hPipe;
     HANDLE readEvent;
     HANDLE writeEvent;
+    HANDLE shutdownEvent;
     BOOL deveContinuar;
     BOOL readerAtivo;
     BOOL ligado;
@@ -46,13 +45,16 @@ typedef struct {
 typedef struct {
     Empresa empresas[MAX_EMPRESAS];
     Utilizador utilizadores[MAX_UTILIZADORES];
-    int numEmpresas;
-    int numUtilizadores;
-    BOOL tradingPaused;
     HANDLE clientPipes[MAXCLIENTES]; // Array de handles para os pipes dos clientes
     HANDLE writeReady;               // Handle para o evento de escrita pronta
     HANDLE readEvent;
+    HANDLE closeEvent;
+    HANDLE closeMutex;
+    int numEmpresas;
+    int numUtilizadores;
+    BOOL tradingPaused;
     BOOL running;
+    BOOL closeFlag;
 } ServerState;
 
 
@@ -74,14 +76,14 @@ typedef struct {
 //teste
 
 
-void readTChars(TCHAR* p, int maxChars) {
-    size_t len;
-    _fgetts(p, maxChars, stdin);
-    len = _tcslen(p);
-    if (p[len - 1] == TEXT('\n')) {
-        p[len - 1] = TEXT('\0');
-    }
-}
+//void readTChars(TCHAR* p, int maxChars) {
+//    size_t len;
+//    _fgetts(p, maxChars, stdin);
+//    len = _tcslen(p);
+//    if (p[len - 1] == TEXT('\n')) {
+//        p[len - 1] = TEXT('\0');
+//    }
+//}
 void InitializeServerState(ServerState* state);
 void PrintLastError(const TCHAR* msg);
 void PrintMenu();
@@ -89,7 +91,8 @@ void PrintMenu();
 void BolsaCommands(ServerState* stateServ, TCHAR* command);
 
 void PrintMenuCliente();
-
+void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent);
+void readTChars(TCHAR* p, int maxChars);
 void ClientCommands(ClientState* stateCli, TCHAR* command);
 
 //void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response);
