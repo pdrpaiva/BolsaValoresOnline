@@ -50,13 +50,14 @@ typedef struct {
     HANDLE readEvent;
     HANDLE closeEvent;
     HANDLE closeMutex;
+    HANDLE pipeAux;
+    HANDLE currentPipe; // Adicionado para armazenar o handle do pipe atual
     int numEmpresas;
     int numUtilizadores;
     BOOL tradingPaused;
     BOOL running;
     BOOL closeFlag;
 } ServerState;
-
 
 //teste
 

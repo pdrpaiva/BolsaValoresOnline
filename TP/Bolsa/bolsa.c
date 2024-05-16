@@ -245,7 +245,8 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
 }
 
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
-    HANDLE hPipe = (HANDLE)lpvParam; // Cada thread recebe seu próprio handle de pipe
+    ServerState* stateServ = (ServerState*)lpvParam;
+    HANDLE hPipe = stateServ->currentPipe; // Obtemos o handle do pipe atual a partir de stateServ
     Msg msgRequest, msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;
@@ -282,6 +283,10 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
         if (_tcscmp(msgRequest.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Client requested disconnect.\n"));
             break;
+        }
+
+        if (_tcscmp(msgRequest.msg, TEXT("login")) == 0) {
+            // Processar o login do cliente
         }
 
         fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), NULL, &overl);
@@ -397,7 +402,6 @@ int _tmain(int argc, TCHAR* argv[]) {
             return -1;
         }
 
-        // Usar OVERLAPPED para ConnectNamedPipe
         OVERLAPPED ol = { 0 };
         ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (ol.hEvent == NULL) {
@@ -449,10 +453,12 @@ int _tmain(int argc, TCHAR* argv[]) {
                 continue;
             }
 
+            stateServ.currentPipe = hPipe; // Configura o pipe atual no estado do servidor
+
             HANDLE hThread = CreateThread(
                 NULL, 0,
                 InstanceThread,
-                (LPVOID)hPipe, // Passar o handle do pipe para a thread
+                (LPVOID)&stateServ, // Passar o ponteiro do estado do servidor para a thread
                 0, NULL
             );
 
