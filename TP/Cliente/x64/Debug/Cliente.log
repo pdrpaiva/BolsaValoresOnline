@@ -1,3 +1,9 @@
 ﻿  cliente.c
 C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(14,13): warning C4013: '_kbhit' indefinido; assumindo extern retornando int
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(211,18): warning C4473: 'wprintf' : não há argumentos suficientes transmitidos para a cadeia de caracteres de formato
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(211,18):
+  espaços reservados e seus parâmetros esperam 1 argumentos variadic, mas 0 foram fornecidos
+  C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(211,18):
+  o argumento variadic 1 ausente é requerido pela cadeia de formato '%d'
+  
   Cliente.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Cliente.exe

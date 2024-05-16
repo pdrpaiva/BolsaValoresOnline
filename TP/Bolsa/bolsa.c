@@ -19,6 +19,7 @@ void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     while (_ftscanf_s(file, TEXT("%49s %49s %lf"), username, (unsigned)_countof(username), password, (unsigned)_countof(password), &saldo) == 3) {
         if (state->numUtilizadores < MAX_UTILIZADORES) {
             wcscpy_s(state->utilizadores[state->numUtilizadores].username, _countof(state->utilizadores[state->numUtilizadores].username), username);
+            wcscpy_s(state->utilizadores[state->numUtilizadores].password, _countof(state->utilizadores[state->numUtilizadores].password), password);
             state->utilizadores[state->numUtilizadores].saldo = saldo;
             state->utilizadores[state->numUtilizadores].isOnline = FALSE;
             state->numUtilizadores++;
@@ -196,6 +197,16 @@ void CloseSystem(ServerState* state, TCHAR* response) {
     state->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 
+BOOL verificaLogin(const ServerState* stateServ, const TCHAR* username, const TCHAR* password) {
+    for (int i = 0; i < stateServ->numUtilizadores; ++i) {
+        if (_tcscmp(stateServ->utilizadores[i].username, username) == 0 &&
+            _tcscmp(stateServ->utilizadores[i].password, password) == 0) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
     if (_tcsncmp(command, TEXT("addc"), 4) == 0) {
         TCHAR nomeEmpresa[50];
@@ -246,54 +257,102 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
 
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     ServerState* stateServ = (ServerState*)lpvParam;
-    HANDLE hPipe = stateServ->currentPipe; // Obtemos o handle do pipe atual a partir de stateServ
-    Msg msgRequest, msgResponse;
+    HANDLE hPipe = stateServ->currentPipe;
+    TCHAR buffer[MSG_TAM * 2]; // Buffer para armazenar dados lidos parcialmente
+    Msg msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;
     OVERLAPPED overl = { 0 };
     overl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
+    ZeroMemory(buffer, sizeof(buffer));
+
     while (1) {
-        ZeroMemory(&msgRequest, sizeof(Msg));
         ResetEvent(overl.hEvent);
-        fSuccess = ReadFile(hPipe, &msgRequest, sizeof(Msg), &bytesRead, &overl);
+        fSuccess = ReadFile(hPipe, buffer, sizeof(buffer) - sizeof(TCHAR), &bytesRead, &overl);
 
         if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
             WaitForSingleObject(overl.hEvent, INFINITE);
-            if (!GetOverlappedResult(hPipe, &overl, &bytesRead, FALSE) || bytesRead == 0) {
-                if (GetLastError() == ERROR_BROKEN_PIPE) {
-                    _tprintf(TEXT("Client disconnected.\n"));
-                    break;
+            fSuccess = GetOverlappedResult(hPipe, &overl, &bytesRead, FALSE);
+        }
+
+        if (!fSuccess || bytesRead == 0) {
+            if (GetLastError() == ERROR_BROKEN_PIPE) {
+                _tprintf(TEXT("Cliente desconectado.\n"));
+                break;
+            }
+            else if (GetLastError() == ERROR_MORE_DATA) {
+                // Continue lendo até obter todos os dados
+                DWORD totalBytesRead = bytesRead;
+                while (GetLastError() == ERROR_MORE_DATA) {
+                    fSuccess = ReadFile(hPipe, buffer + totalBytesRead, sizeof(buffer) - totalBytesRead - sizeof(TCHAR), &bytesRead, &overl);
+                    if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                        WaitForSingleObject(overl.hEvent, INFINITE);
+                        fSuccess = GetOverlappedResult(hPipe, &overl, &bytesRead, FALSE);
+                    }
+                    totalBytesRead += bytesRead;
+                }
+                buffer[totalBytesRead / sizeof(TCHAR)] = TEXT('\0'); // Assegure-se de terminar a string
+            }
+            else {
+                PrintLastError(TEXT("ReadFile falhou"));
+                break;
+            }
+        }
+
+        buffer[bytesRead / sizeof(TCHAR)] = TEXT('\0'); // Assegure-se de terminar a string
+
+        _tprintf(TEXT("Received message: %s\n"), buffer);
+
+        if (_tcsncmp(buffer, TEXT("login "), 6) == 0) {
+            TCHAR username[50];
+            TCHAR password[50];
+
+            if (_stscanf_s(buffer + 6, TEXT("%49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
+                // Verificar login
+                BOOL loginValido = verificaLogin(stateServ, username, password);
+                if (loginValido) {
+                    _tprintf(TEXT("Login bem-sucedido para o usuário: %s\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_success"));
+                    for (int i = 0; i < stateServ->numUtilizadores; ++i) {
+                        if (_tcscmp(stateServ->utilizadores[i].username, username) == 0) {
+                            stateServ->utilizadores[i].isOnline = TRUE;
+                            break;
+                        }
+                    }
                 }
                 else {
-                    PrintLastError(TEXT("ReadFile failed"));
-                    continue;
+                    _tprintf(TEXT("Falha no login para o usuário: %s\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_failed"));
+                }
+
+                // Enviar resposta ao cliente
+                DWORD cWritten;
+                fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+                if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(overl.hEvent, INFINITE);
+                    GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+                }
+
+                if (!fSuccess) {
+                    PrintLastError(TEXT("WriteFile falhou"));
+                    break;
                 }
             }
         }
-        else if (!fSuccess) {
-            PrintLastError(TEXT("ReadFile failed"));
-            break;
-        }
+        else {
+            // Processar outros comandos aqui...
+            _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Comando não reconhecido."));
+            DWORD cWritten;
+            fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+            if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(overl.hEvent, INFINITE);
+                GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+            }
 
-        _tprintf(TEXT("Received message: %s\n"), msgRequest.msg);
-
-        msgResponse = msgRequest;
-
-        if (_tcscmp(msgRequest.msg, TEXT("exit")) == 0) {
-            _tprintf(TEXT("Client requested disconnect.\n"));
-            break;
-        }
-
-        if (_tcscmp(msgRequest.msg, TEXT("login")) == 0) {
-            // Processar o login do cliente
-        }
-
-        fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), NULL, &overl);
-        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
-            WaitForSingleObject(overl.hEvent, INFINITE);
-            if (!GetOverlappedResult(hPipe, &overl, NULL, FALSE)) {
-                PrintLastError(TEXT("WriteFile failed"));
+            if (!fSuccess) {
+                PrintLastError(TEXT("WriteFile falhou"));
+                break;
             }
         }
     }

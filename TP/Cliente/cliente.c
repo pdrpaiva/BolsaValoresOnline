@@ -42,15 +42,23 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
 
         if (fSuccess && bytesRead > 0) {
             _tprintf(TEXT("\nReceived message: %s\n"), fromServer.msg);
-            if (_tcscmp(fromServer.msg, TEXT("Bolsa encerrada.")) == 0) {
+
+            if (_tcscmp(fromServer.msg, TEXT("login_success")) == 0) {
+                stateCli->ligado = TRUE;
+                _tprintf(TEXT("Login bem-sucedido. Cliente agora está ligado.\n"));
+            }
+            else if (_tcscmp(fromServer.msg, TEXT("Bolsa encerrada.")) == 0) {
                 _tprintf(TEXT("Servidor está encerrando. Cliente irá desconectar...\n"));
                 SetEvent(stateCli->shutdownEvent);
                 break;
             }
         }
         else {
-            if (GetLastError() != ERROR_IO_PENDING) {
+            if (GetLastError() != ERROR_IO_PENDING && GetLastError() != ERROR_BROKEN_PIPE) {
                 _tprintf(TEXT("\nError reading from pipe.\n"));
+                break;
+            }
+            else if (GetLastError() == ERROR_BROKEN_PIPE) {
                 break;
             }
         }
@@ -60,7 +68,34 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
 }
 
 void ClientCommands(ClientState* stateCli, TCHAR* command) {
-    if (stateCli->ligado) {
+    if (_tcsncmp(command, TEXT("login"), 5) == 0) {
+        TCHAR username[50];
+        TCHAR password[50];
+        if (_stscanf_s(command, TEXT("login %49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
+            Msg MsgToSend;
+            _stprintf_s(MsgToSend.msg, MSG_TAM, TEXT("login %s %s"), username, password);
+
+            // Envia o comando de login concatenado com username e password
+            DWORD cWritten;
+            OVERLAPPED overl = { 0 };
+            overl.hEvent = stateCli->writeEvent;
+            ResetEvent(stateCli->writeEvent);
+
+            WriteFile(stateCli->hPipe, &MsgToSend, Msg_Size, &cWritten, &overl);
+
+            // Espera a operação de escrita completar
+            if (GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(stateCli->writeEvent, INFINITE);
+                GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
+            }
+
+            _tprintf(TEXT("Tentando login para o usuário: %s\n"), username);
+        }
+        else {
+            _tprintf(TEXT("Erro no login. Utilize: login <username> <password>\n"));
+        }
+    }
+    else if (stateCli->ligado) {
         if (_tcscmp(command, TEXT("comandos")) == 0) {
             PrintMenuCliente();
         }
@@ -89,21 +124,13 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
         }
     }
     else {
-        if (_tcsncmp(command, TEXT("login"), 5) == 0) {
-            TCHAR username[50];
-            TCHAR password[50];
-            if (_stscanf_s(command, TEXT("login %49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
-                _tprintf(TEXT("Login realizado com sucesso.\n"));
-                stateCli->ligado = TRUE;
-                PrintMenuCliente();
-            }
-            else {
-                _tprintf(TEXT("Erro no login. login <username > <password>\n"));
-            }
-        }
-        else {
-            _tprintf(TEXT("Comando inválido. Por favor, faça login para ter acesso a todos os comandos.\n"));
-        }
+        _tprintf(TEXT("Comando inválido. Por favor, faça login para ter acesso a todos os comandos.\n"));
+    }
+
+    if (_tcscmp(command, TEXT("exit")) == 0) {
+        _tprintf(TEXT("Exiting...\n"));
+        SetEvent(stateCli->shutdownEvent);
+        CloseClientPipe(stateCli);
     }
 }
 
@@ -181,7 +208,7 @@ int _tmain(int argc, LPTSTR argv[]) {
     hThread = CreateThread(NULL, 0, ThreadClientReader, &stateCli, 0, &dwThreadId);
 
     if (hThread == NULL) {
-        _tprintf(TEXT("Failed to create the reader thread. GLE=%d\n"), GetLastError());
+        _tprintf(TEXT("Failed to create the reader thread. GLE=%d\n"));
         return -1;
     }
 
@@ -199,6 +226,7 @@ int _tmain(int argc, LPTSTR argv[]) {
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
             _tprintf(TEXT("Exiting...\n"));
             stateCli.deveContinuar = FALSE;
+            SetEvent(stateCli.shutdownEvent);
             CloseClientPipe(&stateCli);
             break;
         }

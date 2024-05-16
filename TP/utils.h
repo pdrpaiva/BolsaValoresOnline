@@ -38,6 +38,7 @@ typedef struct {
 
 typedef struct {
     TCHAR username[50];
+    TCHAR password[50];
     double saldo;
     BOOL isOnline;
 } Utilizador;
@@ -95,7 +96,8 @@ void PrintMenuCliente();
 void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent);
 void readTChars(TCHAR* p, int maxChars);
 void ClientCommands(ClientState* stateCli, TCHAR* command);
-
+BOOL verificaLogin(const ServerState* stateServ, const TCHAR* username, const TCHAR* password);
+void CloseClientPipe(ClientState* stateCli);
 //void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response);
 //void ListCompanies(const ServerState* state, TCHAR* response);
 //void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice, TCHAR* response);
