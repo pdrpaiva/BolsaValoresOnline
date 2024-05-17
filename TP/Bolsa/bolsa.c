@@ -199,6 +199,13 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                                 state->empresas[i].numAcoes -= numAcoes;
                                 state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
                                 state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 + 0.01, numAcoes);
+
+
+                                TCHAR notificacao[MSG_TAM];
+                                _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço de %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
+                                NotifyClients(state, notificacao);
+
+
                                 _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
                                 RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[i].precoAcao * numAcoes); // Registra a transação
                                 UpdateSharedData(state);
@@ -243,6 +250,12 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                                     state->empresas[k].numAcoes += numAcoes;
                                     state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
                                     state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 - 0.01, numAcoes);
+
+
+                                    TCHAR notificacao[MSG_TAM];
+                                    _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço da empresa %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
+                                    NotifyClients(state, notificacao);
+
                                     _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
                                     RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[k].precoAcao * numAcoes);
                                     UpdateSharedData(state);
@@ -377,6 +390,13 @@ void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice
         if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
             state->empresas[i].precoAcao = newPrice;
             _stprintf_s(response, MSG_TAM, TEXT("Preço da empresa %s alterado para %.2f.\n"), nomeEmpresa, newPrice);
+
+
+            TCHAR notificacao[MSG_TAM];
+            _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço da empresa %s: %.2f"), nomeEmpresa, newPrice);
+            NotifyClients(state, notificacao);
+
+
             UpdateSharedData(state);
             SetEvent(state->hEvent); // Sinaliza o evento de atualização
             return;
