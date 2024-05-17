@@ -5,6 +5,7 @@
 #include <fcntl.h>
 
 void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent) {
+    _tprintf(TEXT("\n>> "));
     size_t len = 0;
     while (TRUE) {
         DWORD result = WaitForSingleObject(shutdownEvent, 100);
@@ -275,7 +276,7 @@ int _tmain(int argc, LPTSTR argv[]) {
         return -1;
     }
 
-    _tprintf(TEXT("\nBem-vindo! Faça 'login usr pw' para começar ou 'exit' para sair...\n"));
+    _tprintf(TEXT("\nBem-vindo! Faça 'login' para começar ou 'exit' para sair...\n"));
 
     HANDLE events[] = { stateCli.shutdownEvent };
 
