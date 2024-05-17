@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <tchar.h>
 
-#define MSG_TAM 256
+#define MSG_TAM 2000
 #define MAXCLIENTES 10
 #define MAX_EMPRESAS 30
 #define MAX_UTILIZADORES 20
