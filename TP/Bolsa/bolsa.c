@@ -34,6 +34,52 @@ void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     fclose(file);
 }
 
+
+
+DWORD WINAPI ResumeTradingAfterPause(LPVOID lpParam) {
+    ServerState* state = (ServerState*)lpParam;
+    Sleep(state->pauseDuration * 1000);
+    state->tradingPaused = FALSE;
+    _tprintf(TEXT("Operações de compra e venda retomadas.\n"));
+    //opcional
+    NotifyClients(state, TEXT("Operações de compra e venda foram retomadas.\n"));
+    return 0;
+}
+
+void PauseTrading(ServerState* state, int duration, TCHAR* response) {
+    if (state->tradingPaused) {
+        _stprintf_s(response, MSG_TAM, TEXT("As operações já estão suspensas.\n"));
+        return;
+    }
+
+    state->tradingPaused = TRUE;
+    state->pauseDuration = duration;
+    _stprintf_s(response, MSG_TAM, TEXT("Operações de compra e venda suspensas por %d segundos.\n"), duration);
+
+    NotifyClients(state, TEXT("Operações de compra e venda foram suspensas.\n"));
+
+    // Cria uma thread para gerenciar o tempo de pausa
+    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ResumeTradingAfterPause, state, 0, NULL);
+}
+
+void NotifyClients(ServerState* state, const TCHAR* message) {
+    for (int i = 0; i < MAXCLIENTES; ++i) {
+        HANDLE hPipe = state->clientPipes[i];
+        if (hPipe != NULL) {
+            Msg msg;
+            _tcscpy_s(msg.msg, MSG_TAM, message);
+            DWORD bytesWritten;
+            BOOL fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &bytesWritten, NULL);
+            if (!fSuccess || bytesWritten == 0) {
+                // Se houver falha ao enviar a mensagem, fecha a conexão
+                DisconnectNamedPipe(hPipe);
+                CloseHandle(hPipe);
+                state->clientPipes[i] = NULL;
+            }
+        }
+    }
+}
+
 double CheckBalance(ServerState* state, TCHAR* username) {
     for (int i = 0; i < state->numUtilizadores; i++) {
         if (_tcscmp(state->utilizadores[i].username, username) == 0) {
@@ -76,6 +122,10 @@ void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
 }
 
 void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
+    if (state->tradingPaused) {
+        _stprintf_s(response, MSG_TAM, TEXT("Operações de compra estão suspensas. Tente novamente mais tarde.\n"));
+        return;
+    }
     for (int i = 0; i < state->numEmpresas; ++i) {
         if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
             if (state->empresas[i].numAcoes >= numAcoes) {
@@ -106,6 +156,10 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
 
 
 void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
+    if (state->tradingPaused) {
+        _stprintf_s(response, MSG_TAM, TEXT("Operações de venda estão suspensas. Tente novamente mais tarde.\n"));
+        return;
+    }
     for (int i = 0; i < state->numUtilizadores; ++i) {
         if (_tcscmp(state->utilizadores[i].username, username) == 0) {
             for (int j = 0; j < state->utilizadores[i].numAcoes; ++j) {
@@ -260,13 +314,6 @@ void ListUsers(const ServerState* state, TCHAR* response) {
     }
 }
 
-void PauseTrading(ServerState* state, int duration, TCHAR* response) {
-    state->tradingPaused = TRUE;
-    _stprintf_s(response, MSG_TAM, TEXT("Operações de compra e venda pausadas por %d segundos.\n"), duration);
-    Sleep(duration * 1000);
-    state->tradingPaused = FALSE;
-    _tcscpy_s(response, MSG_TAM, TEXT("Operações de compra e venda retomadas.\n"));
-}
 void CloseSystem(ServerState* state, TCHAR* response) {
     _tcscpy_s(response, MSG_TAM, TEXT("Sistema encerrado.\n"));
     SetEvent(state->closeEvent); // Sinalizar o evento de encerramento

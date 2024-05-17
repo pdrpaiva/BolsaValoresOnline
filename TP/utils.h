@@ -64,9 +64,11 @@ typedef struct {
     HANDLE currentPipe; // Adicionado para armazenar o handle do pipe atual
     int numEmpresas;
     int numUtilizadores;
-    BOOL tradingPaused;
     BOOL running;
     BOOL closeFlag;
+
+    BOOL tradingPaused;
+    int pauseDuration;
 } ServerState;
 
 typedef struct {
@@ -97,5 +99,6 @@ double GetBalance(const ServerState* stateServ, const TCHAR* username);
 void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response);
 void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes);
 double CheckBalance(ServerState* state, TCHAR* username);
-
+void PauseTrading(ServerState* state, int duration, TCHAR* response);
+void NotifyClients(ServerState* state, const TCHAR* message);
 #endif // UTILS_H
