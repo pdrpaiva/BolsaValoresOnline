@@ -1,2 +1,2 @@
-maria qwerty 105.4
+maria qwerty 100.0
 ze 123abc 66

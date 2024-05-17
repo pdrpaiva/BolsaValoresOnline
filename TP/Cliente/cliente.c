@@ -53,9 +53,9 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
                 SetEvent(stateCli->shutdownEvent);
                 break;
             }
-            else if (_tcsncmp(fromServer.msg, TEXT("Empresas na Bolsa:"), 17) == 0) {
-                _tprintf(TEXT("%s\n"), fromServer.msg);
-            }
+           // else if (_tcsncmp(fromServer.msg, TEXT("Empresas na Bolsa:"), 17) == 0) {
+           //     _tprintf(TEXT("%s\n"), fromServer.msg);
+           // }
         }
         else {
             if (GetLastError() != ERROR_IO_PENDING && GetLastError() != ERROR_BROKEN_PIPE) {
@@ -192,11 +192,11 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
         _tprintf(TEXT("Comando inválido. Por favor, faça login para ter acesso a todos os comandos.\n"));
     }
 
-    if (_tcscmp(command, TEXT("exit")) == 0) {
-        _tprintf(TEXT("Exiting...\n"));
-        SetEvent(stateCli->shutdownEvent);
-        CloseClientPipe(stateCli);
-    }
+   // if (_tcscmp(command, TEXT("exit")) == 0) {
+    //    _tprintf(TEXT("Exiting1...\n"));
+   //     SetEvent(stateCli->shutdownEvent);
+    //    CloseClientPipe(stateCli);
+   // }
 }
 
 void PrintMenuCliente() {
@@ -288,7 +288,24 @@ int _tmain(int argc, LPTSTR argv[]) {
         readTCharsWithTimeout(MsgToSend.msg, MSG_TAM, stateCli.shutdownEvent);
 
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
-            _tprintf(TEXT("Exiting...\n"));
+            BOOL fSucess;
+            DWORD cWritten;
+            Msg msgResponse;
+            OVERLAPPED overl = { 0 };
+            overl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+            _stprintf_s(msgResponse.msg, MSG_TAM, TEXT("exit %s "), stateCli.username);
+
+            fSuccess = WriteFile(stateCli.hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+            if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(overl.hEvent, INFINITE);
+                GetOverlappedResult(stateCli.hPipe, &overl, &cWritten, FALSE);
+            }
+
+            if (!fSuccess) {
+                _tprintf(TEXT("WriteFile falhou2"));
+                break;
+            }
+            _tprintf(TEXT("Exiting2...\n"));
             stateCli.deveContinuar = FALSE;
             SetEvent(stateCli.shutdownEvent);
             CloseClientPipe(&stateCli);

@@ -51,10 +51,18 @@ void PrintTopCompaniesAndLastTransaction(SharedData* pSharedData, HANDLE hMutex,
         _tprintf(TEXT("Sem transações.\n"));
     }
     else {
-        _tprintf(TEXT("Empresa: %s, Número de Ações: %d, Valor: %.2f €\n"),
-            pSharedData->ultimaTransacao.nomeEmpresa,
-            pSharedData->ultimaTransacao.numAcoes,
-            pSharedData->ultimaTransacao.valor);
+        if (pSharedData->ultimaTransacao.numAcoes >= 0) {
+            _tprintf(TEXT("COMPRA | Empresa: %s | Número de Ações: %d | Valor: %.2f €\n"),
+                pSharedData->ultimaTransacao.nomeEmpresa,
+                pSharedData->ultimaTransacao.numAcoes,
+                pSharedData->ultimaTransacao.valor);
+        }
+        else {
+            _tprintf(TEXT("VENDA | Empresa: %s | Número de Ações: %d | Valor: %.2f €\n"),
+                pSharedData->ultimaTransacao.nomeEmpresa,
+                abs(pSharedData->ultimaTransacao.numAcoes),
+                pSharedData->ultimaTransacao.valor);
+        }
     }
     _tprintf(TEXT("\n------------------------------------------------------------\n"));
 

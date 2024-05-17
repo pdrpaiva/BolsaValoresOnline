@@ -110,16 +110,39 @@ void NotifyClients(ServerState* state, const TCHAR* message) {
             Msg msg;
             _tcscpy_s(msg.msg, MSG_TAM, message);
             DWORD bytesWritten;
-            BOOL fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &bytesWritten, NULL);
+            BOOL fSuccess = FALSE;
+
+            // Configura OVERLAPPED para a operação de escrita
+            OVERLAPPED overl = { 0 };
+            overl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+            if (overl.hEvent == NULL) {
+                PrintLastError(TEXT("CreateEvent failed for OVERLAPPED in NotifyClients"));
+                continue;
+            }
+
+            // Realiza a operação de escrita no pipe
+            fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &bytesWritten, &overl);
+            if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                // Aguarda a conclusão da operação de escrita
+                WaitForSingleObject(overl.hEvent, INFINITE);
+                fSuccess = GetOverlappedResult(hPipe, &overl, &bytesWritten, FALSE);
+            }
+
+            // Verifica se a escrita foi bem-sucedida
             if (!fSuccess || bytesWritten == 0) {
+                PrintLastError(TEXT("WriteFile failed in NotifyClients"));
                 // Se houver falha ao enviar a mensagem, fecha a conexão
                 DisconnectNamedPipe(hPipe);
                 CloseHandle(hPipe);
                 state->clientPipes[i] = NULL;
             }
+
+            // Fecha o evento
+            CloseHandle(overl.hEvent);
         }
     }
 }
+
 
 double CheckBalance(ServerState* state, TCHAR* username) {
     for (int i = 0; i < state->numUtilizadores; i++) {
@@ -198,12 +221,15 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                             if (sucesso) {
                                 state->empresas[i].numAcoes -= numAcoes;
                                 state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
-                                state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 + 0.01, numAcoes);
+                                for (int v = 0; v < numAcoes; v++) {
+                                    state->empresas[i].precoAcao = state->empresas[i].precoAcao * 1.01;
+                                }
+                                //state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 + 0.01, numAcoes);
 
 
-                                TCHAR notificacao[MSG_TAM];
-                                _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço de %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
-                                NotifyClients(state, notificacao);
+                              //  TCHAR notificacao[MSG_TAM];
+                              //  _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço de %s: %f"), nomeEmpresa, state->empresas[i].precoAcao);
+                              //  NotifyClients(state, notificacao);
 
 
                                 _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
@@ -249,15 +275,17 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                                 if (sucesso) {
                                     state->empresas[k].numAcoes += numAcoes;
                                     state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
-                                    state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 - 0.01, numAcoes);
+                                    for (int v = 0; v < numAcoes; v++) {
+                                        state->empresas[i].precoAcao = state->empresas[i].precoAcao * 0.99;
+                                    }
 
 
-                                    TCHAR notificacao[MSG_TAM];
-                                    _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço da empresa %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
-                                    NotifyClients(state, notificacao);
+                                  //  TCHAR notificacao[MSG_TAM];
+                                 //   _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço da empresa %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
+                               //     NotifyClients(state, notificacao);
 
                                     _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                                    RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[k].precoAcao * numAcoes);
+                                    RegistrarTransacao(state, nomeEmpresa, -numAcoes, state->empresas[k].precoAcao * numAcoes);
                                     UpdateSharedData(state);
                                     SetEvent(state->hEvent); // Sinaliza o evento de atualização
                                     return;
@@ -279,6 +307,12 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
     }
     _stprintf_s(response, MSG_TAM, TEXT("Ações não encontradas na carteira do utilizador ou empresa não encontrada.\n"));
 }
+
+
+
+
+
+
 
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
@@ -409,9 +443,9 @@ void ListUsers(const ServerState* state, TCHAR* response) {
     TCHAR buffer[MSG_TAM];
     _stprintf_s(response, MSG_TAM, TEXT("Utilizadores na Bolsa:\n"));
     for (int i = 0; i < state->numUtilizadores; ++i) {
-        _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f, Online: %s\n"),
+        _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f€, Online: %s\n"),
             state->utilizadores[i].username, state->utilizadores[i].saldo,
-            state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("N�o"));
+            state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Não"));
         _tcscat_s(response, MSG_TAM, buffer);
     }
 }
@@ -500,7 +534,7 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         _tprintf(TEXT("%s\n"), response);
     }
     else {
-        _tprintf(TEXT("Comando inv�lido. Tente novamente.\n"));
+        _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
     }
 }
 
@@ -527,6 +561,12 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
         if (!fSuccess || bytesRead == 0) {
             if (GetLastError() == ERROR_BROKEN_PIPE) {
+                
+                for (int i = 0; i < stateServ->numUtilizadores; i++) {
+                    if (hPipe == stateServ->clientPipes[i]) {
+
+                    }
+                }
                 _tprintf(TEXT("Cliente desconectado.\n"));
                 break;
             }
@@ -558,6 +598,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             _tcscpy_s(msgResponse.msg, MSG_TAM, response);
 
             DWORD cWritten;
+            ResetEvent(overl.hEvent);
             fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
             if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
                 WaitForSingleObject(overl.hEvent, INFINITE);
@@ -565,7 +606,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             }
 
             if (!fSuccess) {
-                PrintLastError(TEXT("WriteFile falhou"));
+                PrintLastError(TEXT("WriteFile falhou1"));
                 break;
             }
         }
@@ -580,6 +621,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 _tcscpy_s(msgResponse.msg, MSG_TAM, response);
 
                 DWORD cWritten;
+                ResetEvent(overl.hEvent);
                 fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
                 if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
                     WaitForSingleObject(overl.hEvent, INFINITE);
@@ -587,7 +629,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 }
 
                 if (!fSuccess) {
-                    PrintLastError(TEXT("WriteFile falhou"));
+                    PrintLastError(TEXT("WriteFile falhou2"));
                     break;
                 }
             }
@@ -603,6 +645,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 _tcscpy_s(msgResponse.msg, MSG_TAM, response);
 
                 DWORD cWritten;
+                ResetEvent(overl.hEvent);
                 fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
                 if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
                     WaitForSingleObject(overl.hEvent, INFINITE);
@@ -610,7 +653,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 }
 
                 if (!fSuccess) {
-                    PrintLastError(TEXT("WriteFile falhou"));
+                    PrintLastError(TEXT("WriteFile falhou3"));
                     break;
                 }
             }
@@ -637,6 +680,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 }
 
                 DWORD cWritten;
+                ResetEvent(overl.hEvent);
                 fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
                 if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
                     WaitForSingleObject(overl.hEvent, INFINITE);
@@ -644,12 +688,12 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 }
 
                 if (!fSuccess) {
-                    PrintLastError(TEXT("WriteFile falhou"));
+                    PrintLastError(TEXT("WriteFile falhou4"));
                     break;
                 }
             }
         }
-        else if (_tcsncmp(buffer, TEXT("balance "), 8) == 0){ 
+        else if (_tcsncmp(buffer, TEXT("balance "), 8) == 0) {
             TCHAR username[50];
 
             if (_stscanf_s(buffer + 8, TEXT("%49s"), username, (unsigned)_countof(username)) == 1) {
@@ -666,15 +710,33 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                     }
 
                     if (!fSuccess) {
-                        PrintLastError(TEXT("WriteFile falhou"));
+                        PrintLastError(TEXT("WriteFile falhou5"));
                         break;
                     }
                 }
             }
         }
+        else if (_tcsncmp(buffer, TEXT("exit "), 5) == 0) {
+            TCHAR username[50];
+
+            if (_stscanf_s(buffer + 5, TEXT("%10s"), username, (unsigned)_countof(username)) == 1) {
+
+
+                for (int i = 0; i < stateServ->numUtilizadores; i++) {
+                    if (_tcscmp(stateServ->utilizadores[i].username, username) == 0){
+                        stateServ->clientPipes[i] = NULL;
+                        stateServ->utilizadores[i].isOnline = FALSE;
+                        break;
+                    }
+                 }
+               // break;
+                
+            }
+        }
         else {
             _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Comando não reconhecido."));
             DWORD cWritten;
+            ResetEvent(overl.hEvent);
             fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
             if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
                 WaitForSingleObject(overl.hEvent, INFINITE);
@@ -682,7 +744,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             }
 
             if (!fSuccess) {
-                PrintLastError(TEXT("WriteFile falhou"));
+                PrintLastError(TEXT("WriteFile123 falhou"));
                 break;
             }
         }
@@ -694,6 +756,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
     return 0;
 }
+
 
 
 

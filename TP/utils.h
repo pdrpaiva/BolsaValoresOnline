@@ -5,7 +5,7 @@
 #include <tchar.h>
 
 #define MSG_TAM 2000
-#define MAXCLIENTES 10
+#define MAXCLIENTES 20
 #define MAX_EMPRESAS 30
 #define MAX_UTILIZADORES 20
 #define MAX_ACOES 5

@@ -14,6 +14,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HeaderFiles", "HeaderFiles"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Board", "board\board.vcxproj", "{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "boardgui", "boardgui\boardgui.vcxproj", "{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -46,6 +48,14 @@ Global
 		{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}.Release|x64.Build.0 = Release|x64
 		{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}.Release|x86.ActiveCfg = Release|Win32
 		{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}.Release|x86.Build.0 = Release|Win32
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Debug|x64.ActiveCfg = Debug|x64
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Debug|x64.Build.0 = Debug|x64
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Debug|x86.ActiveCfg = Debug|Win32
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Debug|x86.Build.0 = Debug|Win32
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Release|x64.ActiveCfg = Release|x64
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Release|x64.Build.0 = Release|x64
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Release|x86.ActiveCfg = Release|Win32
+		{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
