@@ -38,17 +38,25 @@ void PrintTopCompaniesAndLastTransaction(SharedData* pSharedData, HANDLE hMutex,
     }
 
     // Mostrar as N empresas mais valiosas
-    _tprintf(TEXT("Top %d Empresas:\n"), N);
+    _tprintf(TEXT("\nTop %d Empresas:\n"), N);
     for (int i = 0; i < N && i < pSharedData->numEmpresas; ++i) {
-        _tprintf(TEXT("%d. %s - Preço: %.2f\n"), i + 1, pSharedData->empresas[i].nomeEmpresa, pSharedData->empresas[i].precoAcao);
+        _tprintf(TEXT("%d. %s - Preço: %.2f €\n"), i + 1, pSharedData->empresas[i].nomeEmpresa, pSharedData->empresas[i].precoAcao);
     }
 
     // Mostrar a última transação
     _tprintf(TEXT("\nÚltima Transação:\n"));
-    _tprintf(TEXT("Empresa: %s, Número de Ações: %d, Valor: %.2f\n"),
-        pSharedData->ultimaTransacao.nomeEmpresa,
-        pSharedData->ultimaTransacao.numAcoes,
-        pSharedData->ultimaTransacao.valor);
+    if (_tcslen(pSharedData->ultimaTransacao.nomeEmpresa) == 0 &&
+        pSharedData->ultimaTransacao.numAcoes == 0 &&
+        pSharedData->ultimaTransacao.valor == 0.0) {
+        _tprintf(TEXT("Sem transações.\n"));
+    }
+    else {
+        _tprintf(TEXT("Empresa: %s, Número de Ações: %d, Valor: %.2f €\n"),
+            pSharedData->ultimaTransacao.nomeEmpresa,
+            pSharedData->ultimaTransacao.numAcoes,
+            pSharedData->ultimaTransacao.valor);
+    }
+    _tprintf(TEXT("\n------------------------------------------------------------\n"));
 
     ReleaseMutex(hMutex);
 }
@@ -100,6 +108,8 @@ int _tmain(int argc, TCHAR* argv[]) {
         CloseHandle(hMapFile);
         return 1;
     }
+
+    _tprintf(TEXT("\n--------------------- Bolsa de Valores ---------------------\n\n"));
 
     while (1) {
         WaitForSingleObject(hEvent, INFINITE); // Espera pelo evento

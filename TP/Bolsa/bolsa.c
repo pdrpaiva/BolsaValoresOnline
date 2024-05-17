@@ -130,7 +130,7 @@ double CheckBalance(ServerState* state, TCHAR* username) {
 }
 
 
-void RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
     for (int i = 0; i < utilizador->numAcoes; ++i) {
         if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
             utilizador->carteira[i].numAcoes -= numAcoes;
@@ -141,17 +141,18 @@ void RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAco
                 }
                 utilizador->numAcoes--;
             }
-            return;
+            return TRUE;
         }
     }
+    return FALSE; //Empresa não foi encontrada
 }
 
 
-void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
     for (int i = 0; i < utilizador->numAcoes; ++i) {
         if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
             utilizador->carteira[i].numAcoes += numAcoes;
-            return;
+            return TRUE;
         }
     }
 
@@ -159,8 +160,27 @@ void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
         _tcscpy_s(utilizador->carteira[utilizador->numAcoes].nomeEmpresa, _countof(utilizador->carteira[utilizador->numAcoes].nomeEmpresa), nomeEmpresa);
         utilizador->carteira[utilizador->numAcoes].numAcoes = numAcoes;
         utilizador->numAcoes++;
+        return TRUE;
+    }
+    else {
+        return FALSE;
     }
 }
+
+void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor) {
+    WaitForSingleObject(state->hMutex, INFINITE); // Aguarde o mutex para sincronizar o acesso
+    SharedData* pSharedData = (SharedData*)MapViewOfFile(state->hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedData));
+    if (pSharedData != NULL) {
+        // Atualiza a transação diretamente na memória compartilhada
+        _tcscpy_s(pSharedData->ultimaTransacao.nomeEmpresa, 50, nomeEmpresa);
+        pSharedData->ultimaTransacao.numAcoes = numAcoes;
+        pSharedData->ultimaTransacao.valor = valor;
+        //SetEvent(state->hEvent); // Sinalize o evento para notificar os clientes
+        UnmapViewOfFile(pSharedData);
+    }
+    ReleaseMutex(state->hMutex); // Libere o mutex
+}
+
 
 void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
     if (state->tradingPaused) {
@@ -173,12 +193,21 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                 for (int j = 0; j < state->numUtilizadores; ++j) {
                     if (_tcscmp(state->utilizadores[j].username, username) == 0) {
                         if (state->utilizadores[j].saldo >= state->empresas[i].precoAcao * numAcoes) {
-                            state->empresas[i].numAcoes -= numAcoes;
-                            state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
-                            RegistrarCompra(&state->utilizadores[j], nomeEmpresa, numAcoes);
-                            _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                            UpdateSharedData(state);
-                            SetEvent(state->hEvent); // Sinaliza o evento de atualização
+
+                            BOOL sucesso = RegistrarCompra(&state->utilizadores[j], nomeEmpresa, numAcoes);
+                            if (sucesso) {
+                                state->empresas[i].numAcoes -= numAcoes;
+                                state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
+                                state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 + 0.01, numAcoes);
+                                _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
+                                RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[i].precoAcao * numAcoes); // Registra a transação
+                                UpdateSharedData(state);
+                                SetEvent(state->hEvent); // Sinaliza o evento de atualização
+                                return;
+                            }
+                            else {
+                                _stprintf_s(response, MSG_TAM, TEXT("Carteira cheia, compra não realizada!\n"));
+                            }
                             return;
                         }
                         else {
@@ -197,7 +226,6 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
     _stprintf_s(response, MSG_TAM, TEXT("Empresa não encontrada.\n"));
 }
 
-
 void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
     if (state->tradingPaused) {
         _stprintf_s(response, MSG_TAM, TEXT("Operações de venda estão suspensas. Tente novamente mais tarde.\n"));
@@ -210,12 +238,20 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                     if (state->utilizadores[i].carteira[j].numAcoes >= numAcoes) {
                         for (int k = 0; k < state->numEmpresas; ++k) {
                             if (_tcscmp(state->empresas[k].nomeEmpresa, nomeEmpresa) == 0) {
-                                state->empresas[k].numAcoes += numAcoes;
-                                state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
-                                RegistrarVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
-                                _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                                UpdateSharedData(state);
-                                SetEvent(state->hEvent); // Sinaliza o evento de atualização
+                                BOOL sucesso = RegistrarVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
+                                if (sucesso) {
+                                    state->empresas[k].numAcoes += numAcoes;
+                                    state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
+                                    state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 - 0.01, numAcoes);
+                                    _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
+                                    RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[k].precoAcao * numAcoes);
+                                    UpdateSharedData(state);
+                                    SetEvent(state->hEvent); // Sinaliza o evento de atualização
+                                    return;
+                                }
+                                else {
+                                    _stprintf_s(response, MSG_TAM, TEXT("Erro ao registar a venda.\n"));
+                                }
                                 return;
                             }
                         }
@@ -230,7 +266,6 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
     }
     _stprintf_s(response, MSG_TAM, TEXT("Ações não encontradas na carteira do utilizador ou empresa não encontrada.\n"));
 }
-
 
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
@@ -305,13 +340,23 @@ void removeCliente(ServerState* stateServ, HANDLE hCli) {
 
 void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response) {
     if (state->numEmpresas < MAX_EMPRESAS) {
+
+        for (int i = 0; i < state->numEmpresas; i++) {
+            if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
+                _stprintf_s(response, MSG_TAM, TEXT("Já existe uma empresa com o mesmo nome.\n"));
+                return;
+            }
+        }
+
+
         _tcsncpy_s(state->empresas[state->numEmpresas].nomeEmpresa, _countof(state->empresas[state->numEmpresas].nomeEmpresa), nomeEmpresa, _TRUNCATE);
         state->empresas[state->numEmpresas].numAcoes = numAcoes;
         state->empresas[state->numEmpresas].precoAcao = precoAcao;
         state->numEmpresas++;
         _stprintf_s(response, MSG_TAM, TEXT("Empresa %s adicionada com %d ações a %.2f cada.\n"), nomeEmpresa, numAcoes, precoAcao);
         UpdateSharedData(state);
-        SetEvent(state->hEvent); // Sinaliza o evento de atualização
+        SetEvent(state->hEvent);
+        return;
     }
     else {
         _stprintf_s(response, MSG_TAM, TEXT("Limite de empresas atingido.\n"));
