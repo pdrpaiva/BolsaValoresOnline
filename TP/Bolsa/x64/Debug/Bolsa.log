@@ -1,2 +1,5 @@
 ﻿  bolsa.c
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(108,90): warning C4028: parâmetro formal 4 diferente da declaração
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(108,117): warning C4029: lista de parâmetros formais declarada diferente da definição
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Bolsa\bolsa.c(43,1): warning C4715: 'CheckBalance': nem todos os caminhos de controle retornam um valor
   Bolsa.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Bolsa.exe

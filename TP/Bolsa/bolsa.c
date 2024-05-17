@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <io.h>
 #include <fcntl.h>
 #include "../utils.h"
@@ -22,16 +22,116 @@ void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
             wcscpy_s(state->utilizadores[state->numUtilizadores].password, _countof(state->utilizadores[state->numUtilizadores].password), password);
             state->utilizadores[state->numUtilizadores].saldo = saldo;
             state->utilizadores[state->numUtilizadores].isOnline = FALSE;
+            state->utilizadores[state->numUtilizadores].numAcoes = 0;
             state->numUtilizadores++;
         }
         else {
-            _tprintf(TEXT("Número máximo de utilizadores atingido.\n"));
+            _tprintf(TEXT("NÃºmero mÃ¡ximo de utilizadores atingido.\n"));
             break;
         }
     }
 
     fclose(file);
 }
+
+double CheckBalance(ServerState* state, TCHAR* username) {
+    for (int i = 0; i < state->numUtilizadores; i++) {
+        if (_tcscmp(state->utilizadores[i].username, username) == 0) {
+            return state->utilizadores[i].saldo;
+        }
+    }
+}
+
+
+void RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+    for (int i = 0; i < utilizador->numAcoes; ++i) {
+        if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
+            utilizador->carteira[i].numAcoes -= numAcoes;
+            if (utilizador->carteira[i].numAcoes == 0) {
+                // Remove a empresa da carteira se as aÃ§Ãµes chegarem a zero
+                for (int j = i; j < utilizador->numAcoes - 1; ++j) {
+                    utilizador->carteira[j] = utilizador->carteira[j + 1];
+                }
+                utilizador->numAcoes--;
+            }
+            return;
+        }
+    }
+}
+
+
+void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+    for (int i = 0; i < utilizador->numAcoes; ++i) {
+        if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
+            utilizador->carteira[i].numAcoes += numAcoes;
+            return;
+        }
+    }
+
+    if (utilizador->numAcoes < MAX_ACOES) {
+        _tcscpy_s(utilizador->carteira[utilizador->numAcoes].nomeEmpresa, _countof(utilizador->carteira[utilizador->numAcoes].nomeEmpresa), nomeEmpresa);
+        utilizador->carteira[utilizador->numAcoes].numAcoes = numAcoes;
+        utilizador->numAcoes++;
+    }
+}
+
+void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
+    for (int i = 0; i < state->numEmpresas; ++i) {
+        if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
+            if (state->empresas[i].numAcoes >= numAcoes) {
+                for (int j = 0; j < state->numUtilizadores; ++j) {
+                    if (_tcscmp(state->utilizadores[j].username, username) == 0) {
+                        if (state->utilizadores[j].saldo >= state->empresas[i].precoAcao * numAcoes) {
+                            state->empresas[i].numAcoes -= numAcoes;
+                            state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
+                            RegistrarCompra(&state->utilizadores[j], nomeEmpresa, numAcoes);
+                            _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d aÃ§Ãµes de %s.\n"), numAcoes, nomeEmpresa);
+                            return;
+                        }
+                        else {
+                            _stprintf_s(response, MSG_TAM, TEXT("Saldo insuficiente. Compra nÃ£o realizada.\n"));
+                            return;
+                        }
+                    }
+                }
+            }
+            else {
+                _stprintf_s(response, MSG_TAM, TEXT("AÃ§Ãµes insuficientes. Compra nÃ£o realizada.\n"));
+                return;
+            }
+        }
+    }
+    _stprintf_s(response, MSG_TAM, TEXT("Empresa nÃ£o encontrada.\n"));
+}
+
+
+void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
+    for (int i = 0; i < state->numUtilizadores; ++i) {
+        if (_tcscmp(state->utilizadores[i].username, username) == 0) {
+            for (int j = 0; j < state->utilizadores[i].numAcoes; ++j) {
+                if (_tcscmp(state->utilizadores[i].carteira[j].nomeEmpresa, nomeEmpresa) == 0) {
+                    if (state->utilizadores[i].carteira[j].numAcoes >= numAcoes) {
+                        for (int k = 0; k < state->numEmpresas; ++k) {
+                            if (_tcscmp(state->empresas[k].nomeEmpresa, nomeEmpresa) == 0) {
+                                state->empresas[k].numAcoes += numAcoes;
+                                state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
+                                RegistrarVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
+                                _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d aÃ§Ãµes de %s.\n"), numAcoes, nomeEmpresa);
+                                return;
+                            }
+                        }
+                    }
+                    else {
+                        _stprintf_s(response, MSG_TAM, TEXT("AÃ§Ãµes insuficientes para venda. Venda nÃ£o realizada.\n"));
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    _stprintf_s(response, MSG_TAM, TEXT("AÃ§Ãµes nÃ£o encontradas na carteira do utilizador ou empresa nÃ£o encontrada.\n"));
+}
+
 
 void InitializeServerState(ServerState* stateServ) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
@@ -49,11 +149,11 @@ void InitializeServerState(ServerState* stateServ) {
 
 void PrintMenu() {
     _tprintf(TEXT("\n--- Comandos da Bolsa ---\n\n"));
-    _tprintf(TEXT("addc <nome-empresa> <número-ações> <preço-ação> - Adicionar empresa\n"));
+    _tprintf(TEXT("addc <nome-empresa> <nÃºmero-aÃ§Ãµes> <preÃ§o-acÃ£o> - Adicionar empresa\n"));
     _tprintf(TEXT("listc - Listar todas as empresas\n"));
-    _tprintf(TEXT("stock <nome-empresa> <novo-preço> - Alterar preço das ações\n"));
+    _tprintf(TEXT("stock <nome-empresa> <novo-preÃ§o> - Alterar preÃ§o das aÃ§Ãµes\n"));
     _tprintf(TEXT("users - Listar utilizadores\n"));
-    _tprintf(TEXT("pause <segundos> - Pausar operações\n"));
+    _tprintf(TEXT("pause <segundos> - Pausar operaï¿½ï¿½es\n"));
     _tprintf(TEXT("close - Encerrar sistema\n"));
     _tprintf(TEXT("Digite um comando:\n"));
 }
@@ -120,7 +220,7 @@ void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, doub
         state->empresas[state->numEmpresas].numAcoes = numAcoes;
         state->empresas[state->numEmpresas].precoAcao = precoAcao;
         state->numEmpresas++;
-        _stprintf_s(response, MSG_TAM, TEXT("Empresa %s adicionada com %d ações a %.2f cada.\n"), nomeEmpresa, numAcoes, precoAcao);
+        _stprintf_s(response, MSG_TAM, TEXT("Empresa %s adicionada com %d aÃ§Ãµes a %.2f cada.\n"), nomeEmpresa, numAcoes, precoAcao);
         UpdateSharedData(state);
     }
     else {
@@ -132,7 +232,7 @@ void ListCompanies(const ServerState* state, TCHAR* response) {
     TCHAR buffer[MSG_TAM];
     _stprintf_s(response, MSG_TAM, TEXT("Empresas na Bolsa:\n"));
     for (int i = 0; i < state->numEmpresas; ++i) {
-        _stprintf_s(buffer, MSG_TAM, TEXT("Empresa: %s, Ações: %d, Preço: %.2f\n"), state->empresas[i].nomeEmpresa, state->empresas[i].numAcoes, state->empresas[i].precoAcao);
+        _stprintf_s(buffer, MSG_TAM, TEXT("Empresa: %s,AÃ§Ãµes: %d, PreÃ‡o: %.2f\n"), state->empresas[i].nomeEmpresa, state->empresas[i].numAcoes, state->empresas[i].precoAcao);
         _tcscat_s(response, MSG_TAM, buffer);
     }
 }
@@ -141,12 +241,12 @@ void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice
     for (int i = 0; i < state->numEmpresas; ++i) {
         if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
             state->empresas[i].precoAcao = newPrice;
-            _stprintf_s(response, MSG_TAM, TEXT("Preço da empresa %s alterado para %.2f.\n"), nomeEmpresa, newPrice);
+            _stprintf_s(response, MSG_TAM, TEXT("PreÃ§o da empresa %s alterado para %.2f.\n"), nomeEmpresa, newPrice);
             UpdateSharedData(state);
             return;
         }
     }
-    _stprintf_s(response, MSG_TAM, TEXT("Empresa %s não encontrada.\n"), nomeEmpresa);
+    _stprintf_s(response, MSG_TAM, TEXT("Empresa %s nï¿½o encontrada.\n"), nomeEmpresa);
 }
 
 void ListUsers(const ServerState* state, TCHAR* response) {
@@ -155,17 +255,17 @@ void ListUsers(const ServerState* state, TCHAR* response) {
     for (int i = 0; i < state->numUtilizadores; ++i) {
         _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f, Online: %s\n"),
             state->utilizadores[i].username, state->utilizadores[i].saldo,
-            state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Não"));
+            state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Nï¿½o"));
         _tcscat_s(response, MSG_TAM, buffer);
     }
 }
 
 void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     state->tradingPaused = TRUE;
-    _stprintf_s(response, MSG_TAM, TEXT("Operações de compra e venda pausadas por %d segundos.\n"), duration);
+    _stprintf_s(response, MSG_TAM, TEXT("OperaÃ§Ãµes de compra e venda pausadas por %d segundos.\n"), duration);
     Sleep(duration * 1000);
     state->tradingPaused = FALSE;
-    _tcscpy_s(response, MSG_TAM, TEXT("Operações de compra e venda retomadas.\n"));
+    _tcscpy_s(response, MSG_TAM, TEXT("OperaÃ§Ãµes de compra e venda retomadas.\n"));
 }
 void CloseSystem(ServerState* state, TCHAR* response) {
     _tcscpy_s(response, MSG_TAM, TEXT("Sistema encerrado.\n"));
@@ -181,7 +281,7 @@ void CloseSystem(ServerState* state, TCHAR* response) {
             DWORD bytesWritten;
             BOOL fSuccess = WriteFile(hPipe, &msg, sizeof(Msg), &bytesWritten, NULL);
             if (!fSuccess || bytesWritten == 0) {
-                // Se houver falha ao enviar a mensagem, fecha a conexão
+                // Se houver falha ao enviar a mensagem, fecha a conexï¿½o
                 DisconnectNamedPipe(hPipe);
                 CloseHandle(hPipe);
                 state->clientPipes[i] = NULL;
@@ -251,7 +351,7 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         _tprintf(TEXT("%s\n"), response);
     }
     else {
-        _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
+        _tprintf(TEXT("Comando invï¿½lido. Tente novamente.\n"));
     }
 }
 
@@ -282,7 +382,6 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 break;
             }
             else if (GetLastError() == ERROR_MORE_DATA) {
-                // Continue lendo até obter todos os dados
                 DWORD totalBytesRead = bytesRead;
                 while (GetLastError() == ERROR_MORE_DATA) {
                     fSuccess = ReadFile(hPipe, buffer + totalBytesRead, sizeof(buffer) - totalBytesRead - sizeof(TCHAR), &bytesRead, &overl);
@@ -292,7 +391,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                     }
                     totalBytesRead += bytesRead;
                 }
-                buffer[totalBytesRead / sizeof(TCHAR)] = TEXT('\0'); // Assegure-se de terminar a string
+                buffer[totalBytesRead / sizeof(TCHAR)] = TEXT('\0');
             }
             else {
                 PrintLastError(TEXT("ReadFile falhou"));
@@ -300,33 +399,37 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             }
         }
 
-        buffer[bytesRead / sizeof(TCHAR)] = TEXT('\0'); // Assegure-se de terminar a string
+        buffer[bytesRead / sizeof(TCHAR)] = TEXT('\0');
 
         _tprintf(TEXT("Received message: %s\n"), buffer);
 
-        if (_tcsncmp(buffer, TEXT("login "), 6) == 0) {
+        if (_tcscmp(buffer, TEXT("listc")) == 0) {
+            TCHAR response[MSG_TAM];
+            ListCompanies(stateServ, response);
+            _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+
+            DWORD cWritten;
+            fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+            if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(overl.hEvent, INFINITE);
+                GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+            }
+
+            if (!fSuccess) {
+                PrintLastError(TEXT("WriteFile falhou"));
+                break;
+            }
+        }
+        else if (_tcsncmp(buffer, TEXT("buy "), 4) == 0) {
+            TCHAR nomeEmpresa[50];
+            int numAcoes;
             TCHAR username[50];
-            TCHAR password[50];
 
-            if (_stscanf_s(buffer + 6, TEXT("%49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
-                // Verificar login
-                BOOL loginValido = verificaLogin(stateServ, username, password);
-                if (loginValido) {
-                    _tprintf(TEXT("Login bem-sucedido para o usuário: %s\n"), username);
-                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_success"));
-                    for (int i = 0; i < stateServ->numUtilizadores; ++i) {
-                        if (_tcscmp(stateServ->utilizadores[i].username, username) == 0) {
-                            stateServ->utilizadores[i].isOnline = TRUE;
-                            break;
-                        }
-                    }
-                }
-                else {
-                    _tprintf(TEXT("Falha no login para o usuário: %s\n"), username);
-                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_failed"));
-                }
+            if (_stscanf_s(buffer + 4, TEXT("%49s %d %49s"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &numAcoes, username, (unsigned)_countof(username)) == 3) {
+                TCHAR response[MSG_TAM];
+                BuyShares(stateServ, nomeEmpresa, numAcoes, username, response);
+                _tcscpy_s(msgResponse.msg, MSG_TAM, response);
 
-                // Enviar resposta ao cliente
                 DWORD cWritten;
                 fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
                 if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
@@ -340,9 +443,88 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 }
             }
         }
+        else if (_tcsncmp(buffer, TEXT("sell "), 5) == 0) {
+            TCHAR nomeEmpresa[50];
+            int numAcoes;
+            TCHAR username[50];
+
+            if (_stscanf_s(buffer + 5, TEXT("%49s %d %49s"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &numAcoes, username, (unsigned)_countof(username)) == 3) {
+                TCHAR response[MSG_TAM];
+                SellShares(stateServ, nomeEmpresa, numAcoes, username, response);
+                _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+
+                DWORD cWritten;
+                fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+                if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(overl.hEvent, INFINITE);
+                    GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+                }
+
+                if (!fSuccess) {
+                    PrintLastError(TEXT("WriteFile falhou"));
+                    break;
+                }
+            }
+        }
+        else if (_tcsncmp(buffer, TEXT("login "), 6) == 0) {
+            TCHAR username[50];
+            TCHAR password[50];
+
+            if (_stscanf_s(buffer + 6, TEXT("%49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
+                BOOL loginValido = verificaLogin(stateServ, username, password);
+                if (loginValido) {
+                    _tprintf(TEXT("Login bem-sucedido para o usuÃ¡rio: %s\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_success"));
+                    for (int i = 0; i < stateServ->numUtilizadores; ++i) {
+                        if (_tcscmp(stateServ->utilizadores[i].username, username) == 0) {
+                            stateServ->utilizadores[i].isOnline = TRUE;
+                            break;
+                        }
+                    }
+                }
+                else {
+                    _tprintf(TEXT("Falha no login para o usuÃ¡rio: %s\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_failed"));
+                }
+
+                DWORD cWritten;
+                fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+                if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(overl.hEvent, INFINITE);
+                    GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+                }
+
+                if (!fSuccess) {
+                    PrintLastError(TEXT("WriteFile falhou"));
+                    break;
+                }
+            }
+        }
+        else if (_tcsncmp(buffer, TEXT("balance "), 8) == 0){ 
+            TCHAR username[50];
+
+            if (_stscanf_s(buffer + 8, TEXT("%49s"), username, (unsigned)_countof(username)) == 1) {
+                double saldo = CheckBalance(stateServ, username);
+                if (saldo != -1) {
+                    Msg msgResponse;
+                    _sntprintf_s(msgResponse.msg, MSG_TAM, _TRUNCATE, TEXT("Saldo: %.2lf â‚¬"), saldo);
+
+                    DWORD cWritten;
+                    BOOL fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+                    if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                        WaitForSingleObject(overl.hEvent, INFINITE);
+                        fSuccess = GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+                    }
+
+                    if (!fSuccess) {
+                        PrintLastError(TEXT("WriteFile falhou"));
+                        break;
+                    }
+                }
+            }
+        }
         else {
-            // Processar outros comandos aqui...
-            _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Comando não reconhecido."));
+            _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Comando nÃ£o reconhecido."));
             DWORD cWritten;
             fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
             if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
@@ -363,6 +545,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
     return 0;
 }
+
 
 
 DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
@@ -410,7 +593,7 @@ int _tmain(int argc, TCHAR* argv[]) {
         return -1;
     }
 
-    // Criação de memória partilhada e sincronização
+    // Criaï¿½ï¿½o de memï¿½ria partilhada e sincronizaï¿½ï¿½o
     hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(SharedData), SHARED_MEM_NAME);
     if (hMapFile == NULL) {
         PrintLastError(TEXT("CreateFileMapping failed"));
@@ -505,7 +688,7 @@ int _tmain(int argc, TCHAR* argv[]) {
             int slot = adicionaCliente(&stateServ, hPipe);
 
             if (slot == -1) {
-                _tprintf(TEXT("Número máximo de clientes atingido.\n"));
+                _tprintf(TEXT("Nï¿½mero mï¿½ximo de clientes atingido.\n"));
                 DisconnectNamedPipe(hPipe);
                 CloseHandle(hPipe);
                 CloseHandle(ol.hEvent);

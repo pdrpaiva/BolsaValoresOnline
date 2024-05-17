@@ -1,4 +1,4 @@
-#include "../utils.h"
+ï»¿#include "../utils.h"
 #include <windows.h>
 #include <stdio.h>
 #include <io.h>
@@ -7,11 +7,11 @@
 void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent) {
     size_t len = 0;
     while (TRUE) {
-        DWORD result = WaitForSingleObject(shutdownEvent, 100); // Espera por 100ms
+        DWORD result = WaitForSingleObject(shutdownEvent, 100);
         if (result == WAIT_OBJECT_0) {
-            return; // Se o evento de shutdown foi sinalizado, sair
+            return;
         }
-        if (_kbhit()) { // Se houver entrada do usuário
+        if (_kbhit()) {
             _fgetts(p, maxChars, stdin);
             len = _tcslen(p);
             if (p[len - 1] == TEXT('\n')) {
@@ -45,12 +45,15 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
 
             if (_tcscmp(fromServer.msg, TEXT("login_success")) == 0) {
                 stateCli->ligado = TRUE;
-                _tprintf(TEXT("Login bem-sucedido. Cliente agora está ligado.\n"));
+                _tprintf(TEXT("Login bem-sucedido. Cliente agora estÃ¡ ligado.\n"));
             }
             else if (_tcscmp(fromServer.msg, TEXT("Bolsa encerrada.")) == 0) {
-                _tprintf(TEXT("Servidor está encerrando. Cliente irá desconectar...\n"));
+                _tprintf(TEXT("Servidor estÃ¡ encerrando. Cliente irÃ¡ desconectar...\n"));
                 SetEvent(stateCli->shutdownEvent);
                 break;
+            }
+            else if (_tcsncmp(fromServer.msg, TEXT("Empresas na Bolsa:"), 17) == 0) {
+                _tprintf(TEXT("%s\n"), fromServer.msg);
             }
         }
         else {
@@ -74,8 +77,8 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
         if (_stscanf_s(command, TEXT("login %49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
             Msg MsgToSend;
             _stprintf_s(MsgToSend.msg, MSG_TAM, TEXT("login %s %s"), username, password);
+            _tcscpy_s(stateCli->username, _countof(stateCli->username), username);
 
-            // Envia o comando de login concatenado com username e password
             DWORD cWritten;
             OVERLAPPED overl = { 0 };
             overl.hEvent = stateCli->writeEvent;
@@ -83,13 +86,12 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
 
             WriteFile(stateCli->hPipe, &MsgToSend, Msg_Size, &cWritten, &overl);
 
-            // Espera a operação de escrita completar
             if (GetLastError() == ERROR_IO_PENDING) {
                 WaitForSingleObject(stateCli->writeEvent, INFINITE);
                 GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
             }
 
-            _tprintf(TEXT("Tentando login para o usuário: %s\n"), username);
+            _tprintf(TEXT("Tentando login para o usuÃ¡rio: %s\n"), username);
         }
         else {
             _tprintf(TEXT("Erro no login. Utilize: login <username> <password>\n"));
@@ -100,31 +102,93 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
             PrintMenuCliente();
         }
         else if (_tcscmp(command, TEXT("listc")) == 0) {
-            _tprintf(TEXT("listc\n"));
+            Msg MsgtoSend;
+            _tcscpy_s(MsgtoSend.msg, MSG_TAM, TEXT("listc"));
+
+            DWORD cWritten;
+            OVERLAPPED overl = { 0 };
+            overl.hEvent = stateCli->writeEvent;
+            ResetEvent(stateCli->writeEvent);
+
+            WriteFile(stateCli->hPipe, &MsgtoSend, Msg_Size, &cWritten, &overl);
+
+            if (GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(stateCli->writeEvent, INFINITE);
+                GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
+            }
+            _tprintf(TEXT("Comando listc enviado.\n"));
         }
         else if (_tcsncmp(command, TEXT("buy"), 3) == 0) {
             TCHAR nomeEmpresa[50];
             int nAcoes;
             if (_stscanf_s(command, TEXT("buy %49s %d"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &nAcoes) == 2) {
-                _tprintf(TEXT("buy\n"));
+                Msg MsgToSend;
+                _stprintf_s(MsgToSend.msg, MSG_TAM, TEXT("buy %s %d %s"), nomeEmpresa, nAcoes, stateCli->username);
+
+                DWORD cWritten;
+                OVERLAPPED overl = { 0 };
+                overl.hEvent = stateCli->writeEvent;
+                ResetEvent(stateCli->writeEvent);
+
+                WriteFile(stateCli->hPipe, &MsgToSend, Msg_Size, &cWritten, &overl);
+
+                if (GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(stateCli->writeEvent, INFINITE);
+                    GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
+                }
+                _tprintf(TEXT("Comando buy enviado.\n"));
+            }
+            else {
+                _tprintf(TEXT("Erro no comando buy. Utilize: buy <nome-empresa> <nÃºmero-aÃ§Ãµes>\n"));
             }
         }
         else if (_tcsncmp(command, TEXT("sell"), 4) == 0) {
             TCHAR nomeEmpresa[50];
             int nAcoes;
             if (_stscanf_s(command, TEXT("sell %49s %d"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &nAcoes) == 2) {
-                _tprintf(TEXT("sell\n"));
+                Msg MsgToSend;
+                _stprintf_s(MsgToSend.msg, MSG_TAM, TEXT("sell %s %d %s"), nomeEmpresa, nAcoes, stateCli->username);
+
+                DWORD cWritten;
+                OVERLAPPED overl = { 0 };
+                overl.hEvent = stateCli->writeEvent;
+                ResetEvent(stateCli->writeEvent);
+
+                WriteFile(stateCli->hPipe, &MsgToSend, Msg_Size, &cWritten, &overl);
+
+                if (GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(stateCli->writeEvent, INFINITE);
+                    GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
+                }
+                _tprintf(TEXT("Comando sell enviado.\n"));
+            }
+            else {
+                _tprintf(TEXT("Erro no comando sell. Utilize: sell <nome-empresa> <nÃºmero-aÃ§Ãµes>\n"));
             }
         }
         else if (_tcscmp(command, TEXT("balance")) == 0) {
-            _tprintf(TEXT("balance\n"));
+            Msg MsgToSend;
+            _stprintf_s(MsgToSend.msg, MSG_TAM, TEXT("balance %s"),stateCli->username);
+
+            DWORD cWritten;
+            OVERLAPPED overl = { 0 };
+            overl.hEvent = stateCli->writeEvent;
+            ResetEvent(stateCli->writeEvent);
+
+            WriteFile(stateCli->hPipe, &MsgToSend, Msg_Size, &cWritten, &overl);
+
+            if (GetLastError() == ERROR_IO_PENDING) {
+                WaitForSingleObject(stateCli->writeEvent, INFINITE);
+                GetOverlappedResult(stateCli->hPipe, &overl, &cWritten, FALSE);
+            }
+            _tprintf(TEXT("Comando balance enviado.\n"));
         }
         else {
-            _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
+            _tprintf(TEXT("Comando invÃ¡lido. Tente novamente.\n"));
         }
     }
     else {
-        _tprintf(TEXT("Comando inválido. Por favor, faça login para ter acesso a todos os comandos.\n"));
+        _tprintf(TEXT("Comando invÃ¡lido. Por favor, faÃ§a login para ter acesso a todos os comandos.\n"));
     }
 
     if (_tcscmp(command, TEXT("exit")) == 0) {
@@ -137,10 +201,10 @@ void ClientCommands(ClientState* stateCli, TCHAR* command) {
 void PrintMenuCliente() {
     _tprintf(TEXT("\n-------------------------- Comandos do Cliente --------------------------\n\n"));
     _tprintf(TEXT("- Listar todas as empresas  -   listc\n"));
-    _tprintf(TEXT("- Comprar ações             -   buy <nome-empresa> <número-ações>\n"));
-    _tprintf(TEXT("- Vender ações              -   sell <nome-empresa> <número-ações>\n"));
+    _tprintf(TEXT("- Comprar aÃ§Ãµes             -   buy <nome-empresa> <nÃºmero-aÃ§Ãµes>\n"));
+    _tprintf(TEXT("- Vender aÃ§Ãµes              -   sell <nome-empresa> <nÃºmero-aÃ§Ãµes>\n"));
     _tprintf(TEXT("- Consultar saldo           -   balance\n"));
-    _tprintf(TEXT("- Sair da aplicação         -   exit\n"));
+    _tprintf(TEXT("- Sair da aplicaÃ§Ã£o         -   exit\n"));
     _tprintf(TEXT("\n-------------------------------------------------------------------------\n"));
 }
 
@@ -160,6 +224,7 @@ int _tmain(int argc, LPTSTR argv[]) {
     stateCli.deveContinuar = TRUE;
     stateCli.readerAtivo = TRUE;
     stateCli.ligado = FALSE;
+    Msg MsgToSend;
 
     if (stateCli.readEvent == NULL || stateCli.writeEvent == NULL || stateCli.shutdownEvent == NULL) {
         _tprintf(TEXT("Failed to create one or more events.\n"));
@@ -167,12 +232,10 @@ int _tmain(int argc, LPTSTR argv[]) {
     }
 
     BOOL fSuccess = FALSE;
-    DWORD dwMode, cWritten;
+    DWORD dwMode;
     LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
-    Msg MsgToSend;
     HANDLE hThread;
     DWORD dwThreadId = 0;
-    OVERLAPPED OverlWr = { 0 };
 
 #ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -208,11 +271,11 @@ int _tmain(int argc, LPTSTR argv[]) {
     hThread = CreateThread(NULL, 0, ThreadClientReader, &stateCli, 0, &dwThreadId);
 
     if (hThread == NULL) {
-        _tprintf(TEXT("Failed to create the reader thread. GLE=%d\n"));
+        _tprintf(TEXT("Failed to create the reader thread. GLE=%%d\n"));
         return -1;
     }
 
-    _tprintf(TEXT("\nBem-vindo! Faça 'login usr pw' para começar ou 'exit' para sair...\n"));
+    _tprintf(TEXT("\nBem-vindo! FaÃ§a 'login usr pw' para comeÃ§ar ou 'exit' para sair...\n"));
 
     HANDLE events[] = { stateCli.shutdownEvent };
 
@@ -230,42 +293,11 @@ int _tmain(int argc, LPTSTR argv[]) {
             CloseClientPipe(&stateCli);
             break;
         }
+
         ClientCommands(&stateCli, MsgToSend.msg);
-
-        // Verificar o shutdownEvent antes de iniciar a operação de escrita
-        if (WaitForSingleObject(stateCli.shutdownEvent, 0) == WAIT_OBJECT_0) {
-            break;
-        }
-
-        ZeroMemory(&OverlWr, sizeof(OverlWr));
-        OverlWr.hEvent = stateCli.writeEvent;
-        ResetEvent(stateCli.writeEvent);
-
-        fSuccess = WriteFile(stateCli.hPipe, &MsgToSend, Msg_Size, &cWritten, &OverlWr);
-
-        if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
-            HANDLE writeEvents[] = { stateCli.writeEvent, stateCli.shutdownEvent };
-            DWORD dwWait = WaitForMultipleObjects(2, writeEvents, FALSE, INFINITE);
-
-            if (dwWait == WAIT_OBJECT_0 + 1) {
-                // Se o evento de shutdown for sinalizado, sair do loop
-                break;
-            }
-
-            fSuccess = GetOverlappedResult(stateCli.hPipe, &OverlWr, &cWritten, FALSE);
-        }
-
-        if (!fSuccess || cWritten < Msg_Size) {
-            _tprintf(TEXT("WriteFile error or incomplete write. GLE=%d\n"), GetLastError());
-        }
-
-        // Verificar o shutdownEvent imediatamente após a operação de escrita
-        if (WaitForSingleObject(stateCli.shutdownEvent, 0) == WAIT_OBJECT_0) {
-            break;
-        }
     }
 
-    SetEvent(stateCli.shutdownEvent); // Garantir que o ThreadClientReader termine
+    SetEvent(stateCli.shutdownEvent);
     WaitForSingleObject(hThread, INFINITE);
     CloseHandle(hThread);
 
