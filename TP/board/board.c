@@ -1,16 +1,69 @@
-#include "../utils.h"
 #include <windows.h>
+#include <fcntl.h>
 #include <tchar.h>
 #include <stdio.h>
-#include <io.h>
-#include <fcntl.h>
+#include "../utils.h"
 
-void PrintTopEmpresas(Empresa* empresas, int numEmpresas, int topN);
-void PrintUltimaTransacao(Transacao* transacao);
+void PrintLastError(const TCHAR* msg) {
+    DWORD eNum;
+    TCHAR sysMsg[256];
+    TCHAR* p;
 
-DWORD WINAPI UpdateThread(LPVOID lpParam);
+    eNum = GetLastError();
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, eNum,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        sysMsg, 256, NULL);
+
+    p = sysMsg;
+    while ((*p > 31) || (*p == 9))
+        ++p;
+    do { *p-- = 0; } while ((p >= sysMsg) && ((*p == '.') || (*p < 33)));
+
+    _tprintf(TEXT("\n%s: %s (Error %d)\n"), msg, sysMsg, eNum);
+}
+
+void PrintTopCompaniesAndLastTransaction(SharedData* pSharedData, HANDLE hMutex, int N) {
+    WaitForSingleObject(hMutex, INFINITE);
+
+    // Ordenar as empresas por preço de ação (ordem decrescente)
+    for (int i = 0; i < pSharedData->numEmpresas - 1; ++i) {
+        for (int j = i + 1; j < pSharedData->numEmpresas; ++j) {
+            if (pSharedData->empresas[j].precoAcao > pSharedData->empresas[i].precoAcao) {
+                Empresa temp = pSharedData->empresas[i];
+                pSharedData->empresas[i] = pSharedData->empresas[j];
+                pSharedData->empresas[j] = temp;
+            }
+        }
+    }
+
+    // Mostrar as N empresas mais valiosas
+    _tprintf(TEXT("Top %d Empresas:\n"), N);
+    for (int i = 0; i < N && i < pSharedData->numEmpresas; ++i) {
+        _tprintf(TEXT("%d. %s - Preço: %.2f\n"), i + 1, pSharedData->empresas[i].nomeEmpresa, pSharedData->empresas[i].precoAcao);
+    }
+
+    // Mostrar a última transação
+    _tprintf(TEXT("\nÚltima Transação:\n"));
+    _tprintf(TEXT("Empresa: %s, Número de Ações: %d, Valor: %.2f\n"),
+        pSharedData->ultimaTransacao.nomeEmpresa,
+        pSharedData->ultimaTransacao.numAcoes,
+        pSharedData->ultimaTransacao.valor);
+
+    ReleaseMutex(hMutex);
+}
 
 int _tmain(int argc, TCHAR* argv[]) {
+    if (argc < 2) {
+        _tprintf(TEXT("Uso: %s <N>\n"), argv[0]);
+        return 1;
+    }
+
+    int N = _ttoi(argv[1]);
+    if (N < 1 || N > MAX_TOP_EMPRESAS) {
+        _tprintf(TEXT("N deve estar entre 1 e %d\n"), MAX_TOP_EMPRESAS);
+        return 1;
+    }
 
 #ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -18,111 +71,46 @@ int _tmain(int argc, TCHAR* argv[]) {
     _setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
-    if (argc < 2) {
-        _tprintf(_T("Usage: %s <N>\n"), argv[0]);
-        return 1;
-    }
-
-    int topN = _ttoi(argv[1]);
-    if (topN <= 0 || topN > MAX_TOP_EMPRESAS) {
-        _tprintf(_T("N must be between 1 and %d.\n"), MAX_TOP_EMPRESAS);
-        return 1;
-    }
-
     HANDLE hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, SHARED_MEM_NAME);
     if (hMapFile == NULL) {
-        _tprintf(_T("Could not open file mapping object (%d).\n"), GetLastError());
+        PrintLastError(TEXT("OpenFileMapping failed"));
         return 1;
     }
 
-    SharedData* pData = (SharedData*)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedData));
-    if (pData == NULL) {
-        _tprintf(_T("Could not map view of file (%d).\n"), GetLastError());
+    SharedData* pSharedData = (SharedData*)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedData));
+    if (pSharedData == NULL) {
+        PrintLastError(TEXT("MapViewOfFile failed"));
         CloseHandle(hMapFile);
         return 1;
     }
 
     HANDLE hMutex = OpenMutex(SYNCHRONIZE, FALSE, MUTEX_NAME);
     if (hMutex == NULL) {
-        _tprintf(_T("Could not open mutex (%d).\n"), GetLastError());
-        UnmapViewOfFile(pData);
+        PrintLastError(TEXT("OpenMutex failed"));
+        UnmapViewOfFile(pSharedData);
         CloseHandle(hMapFile);
         return 1;
     }
 
-    HANDLE hEvent = OpenEvent(SYNCHRONIZE, FALSE, EVENT_NAME);
+    HANDLE hEvent = OpenEvent(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, EVENT_NAME);
     if (hEvent == NULL) {
-        _tprintf(_T("Could not open event (%d).\n"), GetLastError());
+        PrintLastError(TEXT("OpenEvent failed"));
         CloseHandle(hMutex);
-        UnmapViewOfFile(pData);
+        UnmapViewOfFile(pSharedData);
         CloseHandle(hMapFile);
         return 1;
     }
 
-    HANDLE hUpdateThread = CreateThread(NULL, 0, UpdateThread, pData, 0, NULL);
-    if (hUpdateThread == NULL) {
-        _tprintf(_T("Could not create update thread (%d).\n"), GetLastError());
-        CloseHandle(hEvent);
-        CloseHandle(hMutex);
-        UnmapViewOfFile(pData);
-        CloseHandle(hMapFile);
-        return 1;
+    while (1) {
+        WaitForSingleObject(hEvent, INFINITE); // Espera pelo evento
+        PrintTopCompaniesAndLastTransaction(pSharedData, hMutex, N);
+        ResetEvent(hEvent); // Reseta o evento após ser sinalizado
     }
 
-    WaitForSingleObject(hUpdateThread, INFINITE);
-    CloseHandle(hUpdateThread);
     CloseHandle(hEvent);
     CloseHandle(hMutex);
-    UnmapViewOfFile(pData);
+    UnmapViewOfFile(pSharedData);
     CloseHandle(hMapFile);
 
     return 0;
-}
-
-DWORD WINAPI UpdateThread(LPVOID lpParam) {
-    SharedData* pData = (SharedData*)lpParam;
-    HANDLE hEvent = OpenEvent(SYNCHRONIZE, FALSE, EVENT_NAME);
-    HANDLE hMutex = OpenMutex(SYNCHRONIZE, FALSE, MUTEX_NAME);
-
-    while (1) {
-        WaitForSingleObject(hEvent, INFINITE);
-        WaitForSingleObject(hMutex, INFINITE);
-
-        PrintTopEmpresas(pData->empresas, pData->numEmpresas, MAX_TOP_EMPRESAS);
-        PrintUltimaTransacao(&pData->ultimaTransacao);
-
-        ReleaseMutex(hMutex);
-        ResetEvent(hEvent); // Reset the event to non-signaled state
-        Sleep(1000);
-    }
-
-    return 0;
-}
-
-void PrintTopEmpresas(Empresa* empresas, int numEmpresas, int topN) {
-    Empresa topEmpresas[MAX_EMPRESAS];
-    int count = (numEmpresas < topN) ? numEmpresas : topN;
-    memcpy(topEmpresas, empresas, sizeof(Empresa) * numEmpresas);
-
-    for (int i = 0; i < count - 1; ++i) {
-        for (int j = i + 1; j < count; ++j) {
-            if (topEmpresas[j].precoAcao > topEmpresas[i].precoAcao) {
-                Empresa temp = topEmpresas[i];
-                topEmpresas[i] = topEmpresas[j];
-                topEmpresas[j] = temp;
-            }
-        }
-    }
-
-    _tprintf(_T("\n--- Top %d Empresas ---\n"), topN);
-    for (int i = 0; i < count; ++i) {
-        _tprintf(_T("%s: %d ações, %.2f cada\n"), topEmpresas[i].nomeEmpresa, topEmpresas[i].numAcoes, topEmpresas[i].precoAcao);
-    }
-}
-
-void PrintUltimaTransacao(Transacao* transacao) {
-    _tprintf(_T("\n--- Última Transação ---\n"));
-    _tprintf(_T("Empresa: %s\n"), transacao->nomeEmpresa);
-    _tprintf(_T("Número de Ações: %d\n"), transacao->numAcoes);
-    _tprintf(_T("Valor: %.2f\n"), transacao->valor);
 }

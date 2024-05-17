@@ -81,16 +81,25 @@ typedef struct {
 
     BOOL tradingPaused;
     int pauseDuration;
+
+    HANDLE hMapFile;
+    HANDLE hMutex;
+    HANDLE hEvent;
 } ServerState;
 
+//--------------------------------------//--------------------------------------//--------------------------------------//
+
 // Cliente:
+
 void PrintMenuCliente();
 void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent);
 void ClientCommands(ClientState* stateCli, TCHAR* command);
 void CloseClientPipe(ClientState* stateCli);
 
+//--------------------------------------//--------------------------------------//--------------------------------------//
 
 // Servidor:
+
 void InitializeServerState(ServerState* state);
 void PrintLastError(const TCHAR* msg);
 void PrintMenu();
@@ -103,5 +112,15 @@ void RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
 double CheckBalance(ServerState* state, TCHAR* username);
 void PauseTrading(ServerState* state, int duration, TCHAR* response);
 void NotifyClients(ServerState* state, const TCHAR* message);
+
+//--------------------------------------//--------------------------------------//--------------------------------------//
+
+//Bolsa : 
+
+BOOL InitializeSharedResources(ServerState* state);
+void CleanupSharedResources(ServerState* state);
+void UpdateSharedData(ServerState* state);
+
+//--------------------------------------//--------------------------------------//--------------------------------------//
 
 #endif // UTILS_H
