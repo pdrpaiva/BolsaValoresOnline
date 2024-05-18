@@ -48,12 +48,12 @@ void CleanupSharedResources(ServerState* state) {
     CloseHandle(state->hMapFile);
 }
 
-void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
+BOOL ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     FILE* file;
     _tfopen_s(&file, filename, TEXT("r"));
     if (!file) {
         _tprintf(TEXT("Erro ao abrir o ficheiro de utilizadores.\n"));
-        return;
+        return FALSE;
     }
 
     TCHAR username[50], password[50];
@@ -74,6 +74,7 @@ void ReadUsersFromFile(ServerState* state, const TCHAR* filename) {
     }
 
     fclose(file);
+    return TRUE;
 }
 
 
@@ -81,23 +82,23 @@ DWORD WINAPI ResumeTradingAfterPause(LPVOID lpParam) {
     ServerState* state = (ServerState*)lpParam;
     Sleep(state->pauseDuration * 1000);
     state->tradingPaused = FALSE;
-    _tprintf(TEXT("Operações de compra e venda retomadas.\n"));
+    _tprintf(TEXT("As operações de compra e venda foram retomadas.\n\n"));
     //opcional
-    NotifyClients(state, TEXT("Operações de compra e venda foram retomadas.\n"));
+    NotifyClients(state, TEXT("As operações de compra e venda foram retomadas.\n\n"));
     return 0;
 }
 
 void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     if (state->tradingPaused) {
-        _stprintf_s(response, MSG_TAM, TEXT("As operações já estão suspensas.\n"));
+        _stprintf_s(response, MSG_TAM, TEXT("As operações já se encontram suspensas.\n"));
         return;
     }
 
     state->tradingPaused = TRUE;
     state->pauseDuration = duration;
-    _stprintf_s(response, MSG_TAM, TEXT("Operações de compra e venda suspensas por %d segundos.\n"), duration);
+    _stprintf_s(response, MSG_TAM, TEXT("As operações de compra e venda foram suspensas por %d segundos.\n"));
 
-    NotifyClients(state, TEXT("Operações de compra e venda foram suspensas.\n"));
+    NotifyClients(state, TEXT("As operações de compra e venda foram suspensas por tempo limitado.\n"));
 
     // Cria uma thread para gerenciar o tempo de pausa
     CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ResumeTradingAfterPause, state, 0, NULL);
@@ -152,6 +153,51 @@ double CheckBalance(ServerState* state, TCHAR* username) {
     }
 }
 
+void Wallet(ServerState* state, TCHAR* response, TCHAR* username) {
+    for (int i = 0; i < state->numUtilizadores; i++) {
+        // Encontra o usuário
+        if (_tcscmp(username, state->utilizadores[i].username) == 0) {
+            TCHAR buffer[MSG_TAM];
+            double lucroTotal = 0.0;
+
+            if (state->utilizadores[i].numAcoes > 0) {
+                _stprintf_s(response, MSG_TAM, TEXT("Carteira Pessoal:\n\n"));
+                for (int j = 0; j < state->utilizadores[i].numAcoes; j++) {
+                    for (int k = 0; k < state->numEmpresas; k++) {
+                        if (_tcscmp(state->empresas[k].nomeEmpresa, state->utilizadores[i].carteira[j].nomeEmpresa) == 0) {
+                            double valorAtual = state->empresas[k].precoAcao * state->utilizadores[i].carteira[j].numAcoes;
+                            double valorCompra = state->utilizadores[i].carteira[j].precoCompra * state->utilizadores[i].carteira[j].numAcoes;
+                            double lucro = valorAtual - valorCompra;
+                            lucroTotal += lucro;
+
+                            _stprintf_s(buffer, MSG_TAM, TEXT("- %s | Ações: %d | Preço Atual: %.2f € | Preço de Compra: %.2f €\n"),
+                                state->utilizadores[i].carteira[j].nomeEmpresa, state->utilizadores[i].carteira[j].numAcoes,
+                                state->empresas[k].precoAcao, state->utilizadores[i].carteira[j].precoCompra);
+                            _tcscat_s(response, MSG_TAM, buffer);  // Concatenar a informação no response
+                        }
+                    }
+                }
+
+                // Adiciona o lucro total ao final do response
+                if (lucroTotal >= 0) {
+                    _stprintf_s(buffer, MSG_TAM, TEXT("\nLucro: +%.2f €\n"), lucroTotal);
+                }
+                else {
+                    _stprintf_s(buffer, MSG_TAM, TEXT("\nPrejuízo: %.2f €\n"), lucroTotal);
+                }
+                _tcscat_s(response, MSG_TAM, buffer);
+
+            }
+            else {
+                _stprintf_s(response, MSG_TAM, TEXT("Neste momento não possui nenhuma ação.\n"));
+            }
+            return;  // Finalizar a função após encontrar o usuário
+        }
+    }
+    _stprintf_s(response, MSG_TAM, TEXT("Usuário não encontrado.\n"));  // Caso o usuário não seja encontrado
+}
+
+
 
 BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
     for (int i = 0; i < utilizador->numAcoes; ++i) {
@@ -171,10 +217,13 @@ BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAco
 }
 
 
-BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes, double precoCompra) {
     for (int i = 0; i < utilizador->numAcoes; ++i) {
         if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
+            // Atualiza o preço de compra médio
+            double totalInvestido = utilizador->carteira[i].precoCompra * utilizador->carteira[i].numAcoes + precoCompra * numAcoes;
             utilizador->carteira[i].numAcoes += numAcoes;
+            utilizador->carteira[i].precoCompra = totalInvestido / utilizador->carteira[i].numAcoes;
             return TRUE;
         }
     }
@@ -182,6 +231,7 @@ BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
     if (utilizador->numAcoes < MAX_ACOES) {
         _tcscpy_s(utilizador->carteira[utilizador->numAcoes].nomeEmpresa, _countof(utilizador->carteira[utilizador->numAcoes].nomeEmpresa), nomeEmpresa);
         utilizador->carteira[utilizador->numAcoes].numAcoes = numAcoes;
+        utilizador->carteira[utilizador->numAcoes].precoCompra = precoCompra;
         utilizador->numAcoes++;
         return TRUE;
     }
@@ -217,20 +267,14 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                     if (_tcscmp(state->utilizadores[j].username, username) == 0) {
                         if (state->utilizadores[j].saldo >= state->empresas[i].precoAcao * numAcoes) {
 
-                            BOOL sucesso = RegistrarCompra(&state->utilizadores[j], nomeEmpresa, numAcoes);
+                            BOOL sucesso = RegistrarCompra(&state->utilizadores[j], nomeEmpresa, numAcoes, state->empresas[i].precoAcao);
                             if (sucesso) {
                                 state->empresas[i].numAcoes -= numAcoes;
                                 state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
+                                _tprintf(TEXT("Foram compradas %d ações da empresa '%s' a %.2f €.\n\n"), numAcoes, nomeEmpresa, state->empresas[i].precoAcao);
                                 for (int v = 0; v < numAcoes; v++) {
                                     state->empresas[i].precoAcao = state->empresas[i].precoAcao * 1.01;
                                 }
-                                //state->empresas[i].precoAcao = state->empresas[i].precoAcao * pow(1 + 0.01, numAcoes);
-
-
-                              //  TCHAR notificacao[MSG_TAM];
-                              //  _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço de %s: %f"), nomeEmpresa, state->empresas[i].precoAcao);
-                              //  NotifyClients(state, notificacao);
-
 
                                 _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
                                 RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[i].precoAcao * numAcoes); // Registra a transação
@@ -259,11 +303,13 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
     _stprintf_s(response, MSG_TAM, TEXT("Empresa não encontrada.\n"));
 }
 
+
 void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const TCHAR* username, TCHAR* response) {
     if (state->tradingPaused) {
         _stprintf_s(response, MSG_TAM, TEXT("Operações de venda estão suspensas. Tente novamente mais tarde.\n"));
         return;
     }
+
     for (int i = 0; i < state->numUtilizadores; ++i) {
         if (_tcscmp(state->utilizadores[i].username, username) == 0) {
             for (int j = 0; j < state->utilizadores[i].numAcoes; ++j) {
@@ -273,27 +319,22 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                             if (_tcscmp(state->empresas[k].nomeEmpresa, nomeEmpresa) == 0) {
                                 BOOL sucesso = RegistrarVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
                                 if (sucesso) {
+                                    double precoVenda = state->empresas[k].precoAcao * numAcoes;
                                     state->empresas[k].numAcoes += numAcoes;
-                                    state->utilizadores[i].saldo += state->empresas[k].precoAcao * numAcoes;
-                                    for (int v = 0; v < numAcoes; v++) {
-                                        state->empresas[i].precoAcao = state->empresas[i].precoAcao * 0.99;
-                                    }
-
-
-                                  //  TCHAR notificacao[MSG_TAM];
-                                 //   _stprintf_s(notificacao, MSG_TAM, TEXT("Novo preço da empresa %s: %.2f"), nomeEmpresa, state->empresas[i].precoAcao);
-                               //     NotifyClients(state, notificacao);
+                                    _tprintf(TEXT("Foram vendidas %d ações da empresa '%s' a %.2f €.\n\n"), numAcoes, nomeEmpresa, state->empresas[i].precoAcao);
+                                    state->empresas[k].precoAcao *= 0.99;
+                                    state->utilizadores[i].saldo += precoVenda;
 
                                     _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                                    RegistrarTransacao(state, nomeEmpresa, -numAcoes, state->empresas[k].precoAcao * numAcoes);
+                                    RegistrarTransacao(state, nomeEmpresa, -numAcoes, precoVenda);
                                     UpdateSharedData(state);
-                                    SetEvent(state->hEvent); // Sinaliza o evento de atualização
+                                    SetEvent(state->hEvent); // Sinaliza o evento
                                     return;
                                 }
                                 else {
-                                    _stprintf_s(response, MSG_TAM, TEXT("Erro ao registar a venda.\n"));
+                                    _stprintf_s(response, MSG_TAM, TEXT("Erro ao registrar a venda.\n"));
+                                    return;
                                 }
-                                return;
                             }
                         }
                     }
@@ -303,14 +344,13 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                     }
                 }
             }
+            _stprintf_s(response, MSG_TAM, TEXT("Não possui nenhuma ação da empresa %s.\n"), nomeEmpresa);
+            return;
         }
     }
-    _stprintf_s(response, MSG_TAM, TEXT("Ações não encontradas na carteira do utilizador ou empresa não encontrada.\n"));
+    _stprintf_s(response, MSG_TAM, TEXT("A empresa '%s' não existe.\n"), nomeEmpresa);
+    return;
 }
-
-
-
-
 
 
 
@@ -329,14 +369,14 @@ void InitializeServerState(ServerState* stateServ) {
 }
 
 void PrintMenu() {
-    _tprintf(TEXT("\n--- Comandos da Bolsa ---\n\n"));
-    _tprintf(TEXT("addc <nome-empresa> <número-ações> <preço-acão> - Adicionar empresa\n"));
-    _tprintf(TEXT("listc - Listar todas as empresas\n"));
-    _tprintf(TEXT("stock <nome-empresa> <novo-preço> - Alterar preço das ações\n"));
-    _tprintf(TEXT("users - Listar utilizadores\n"));
-    _tprintf(TEXT("pause <segundos> - Pausar opera��es\n"));
-    _tprintf(TEXT("close - Encerrar sistema\n"));
-    _tprintf(TEXT("Digite um comando:\n"));
+    _tprintf(TEXT("\n------------------------------ Comandos da Bolsa ------------------------------\n\n"));
+    _tprintf(TEXT(" Adicionar empresa         -   addc <nome-empresa> <número-ações> <preço-acão>\n"));
+    _tprintf(TEXT(" Listar todas as empresas  -   listc\n"));
+    _tprintf(TEXT(" Alterar preço das ações   -   stock <nome-empresa> <novo-preço>\n"));
+    _tprintf(TEXT(" Listar utilizadores       -   users\n"));
+    _tprintf(TEXT(" Suspender operações       -   pause <segundos>\n"));
+    _tprintf(TEXT(" Encerrar sistema          -   close\n"));
+    _tprintf(TEXT("\n-------------------------------------------------------------------------------\n\n"));
 }
 
 void PrintLastError(const TCHAR* msg) {
@@ -400,7 +440,7 @@ void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, doub
         state->empresas[state->numEmpresas].numAcoes = numAcoes;
         state->empresas[state->numEmpresas].precoAcao = precoAcao;
         state->numEmpresas++;
-        _stprintf_s(response, MSG_TAM, TEXT("Empresa %s adicionada com %d ações a %.2f cada.\n"), nomeEmpresa, numAcoes, precoAcao);
+        _stprintf_s(response, MSG_TAM, TEXT("Empresa '%s' adicionada com %d ações a %.2f € cada.\n"), nomeEmpresa, numAcoes, precoAcao);
         UpdateSharedData(state);
         SetEvent(state->hEvent);
         return;
@@ -412,18 +452,27 @@ void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, doub
 
 void ListCompanies(const ServerState* state, TCHAR* response) {
     TCHAR buffer[MSG_TAM];
-    _stprintf_s(response, MSG_TAM, TEXT("Empresas na Bolsa:\n"));
-    for (int i = 0; i < state->numEmpresas; ++i) {
-        _stprintf_s(buffer, MSG_TAM, TEXT("Empresa: %s,Ações: %d, PreÇo: %.2f\n"), state->empresas[i].nomeEmpresa, state->empresas[i].numAcoes, state->empresas[i].precoAcao);
-        _tcscat_s(response, MSG_TAM, buffer);
+    if(state->numEmpresas > 0) {
+        _stprintf_s(response, MSG_TAM, TEXT("Empresas registadas na Bolsa:\n\n"));
+        for (int i = 0; i < state->numEmpresas; ++i) {
+            _stprintf_s(buffer, MSG_TAM, TEXT("- %s | Ações: %d | Preço: %.2f €\n"), state->empresas[i].nomeEmpresa, state->empresas[i].numAcoes, state->empresas[i].precoAcao);
+            _tcscat_s(response, MSG_TAM, buffer);
+        }
+    }
+    else {
+        _stprintf_s(response, MSG_TAM, TEXT("Não existem empresas registadas na bolsa.\n"));
     }
 }
 
 void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice, TCHAR* response) {
+    if (state->numEmpresas <= 0){
+        _stprintf_s(response, MSG_TAM, TEXT("Não existem empresas registadas na bolsa.\n"), nomeEmpresa);
+        return;
+    }
     for (int i = 0; i < state->numEmpresas; ++i) {
         if (_tcscmp(state->empresas[i].nomeEmpresa, nomeEmpresa) == 0) {
             state->empresas[i].precoAcao = newPrice;
-            _stprintf_s(response, MSG_TAM, TEXT("Preço da empresa %s alterado para %.2f.\n"), nomeEmpresa, newPrice);
+            _stprintf_s(response, MSG_TAM, TEXT("Preço da empresa %s alterado para %.2f €.\n"), nomeEmpresa, newPrice);
 
 
             TCHAR notificacao[MSG_TAM];
@@ -436,14 +485,15 @@ void SetStockPrice(ServerState* state, const TCHAR* nomeEmpresa, double newPrice
             return;
         }
     }
-    _stprintf_s(response, MSG_TAM, TEXT("Empresa %s não encontrada.\n"), nomeEmpresa);
+     //_tprintf_s(TEXT("A empresa '%s' não existe.\n\n"), nomeEmpresa);
+    _stprintf_s(response, MSG_TAM, TEXT("A empresa '%s' não existe.\n"), nomeEmpresa);
 }
 
 void ListUsers(const ServerState* state, TCHAR* response) {
     TCHAR buffer[MSG_TAM];
-    _stprintf_s(response, MSG_TAM, TEXT("Utilizadores na Bolsa:\n"));
+    _stprintf_s(response, MSG_TAM, TEXT("Utilizadores registados na Bolsa:\n\n"));
     for (int i = 0; i < state->numUtilizadores; ++i) {
-        _stprintf_s(buffer, MSG_TAM, TEXT("Utilizador: %s, Saldo: %.2f€, Online: %s\n"),
+        _stprintf_s(buffer, MSG_TAM, TEXT("- %s | Saldo: %.2f €  | Online: %s\n"),
             state->utilizadores[i].username, state->utilizadores[i].saldo,
             state->utilizadores[i].isOnline ? TEXT("Sim") : TEXT("Não"));
         _tcscat_s(response, MSG_TAM, buffer);
@@ -496,9 +546,17 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
         int numAcoes;
         double precoAcao;
         if (_stscanf_s(command, TEXT("addc %49s %d %lf"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &numAcoes, &precoAcao) == 3) {
-            TCHAR response[MSG_TAM];
-            AddCompany(stateServ, nomeEmpresa, numAcoes, precoAcao, response);
-            _tprintf(TEXT("%s\n"), response);
+            if(numAcoes > 0 && precoAcao > 0) {
+                TCHAR response[MSG_TAM];
+                AddCompany(stateServ, nomeEmpresa, numAcoes, precoAcao, response);
+                _tprintf(TEXT("%s\n"), response);
+            }
+            else {
+                _tprintf(TEXT("Erro: O número de ações e o preço devem ser valores positivos.\n\n"));
+            }
+        }
+        else {
+            _tprintf(TEXT("Erro no comando. Utilize 'addc <nome-empresa> <número-ações> <preço-ação>'\n\n"));
         }
     }
     else if (_tcscmp(command, TEXT("listc")) == 0) {
@@ -508,11 +566,19 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
     }
     else if (_tcsncmp(command, TEXT("stock"), 5) == 0) {
         TCHAR nomeEmpresa[50];
-        double newPrice;
-        if (_stscanf_s(command, TEXT("stock %49s %lf"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &newPrice) == 2) {
-            TCHAR response[MSG_TAM];
-            SetStockPrice(stateServ, nomeEmpresa, newPrice, response);
-            _tprintf(TEXT("%s\n"), response);
+        double novoPreco;
+        if (_stscanf_s(command, TEXT("stock %49s %lf"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &novoPreco) == 2) {
+            if (novoPreco > 0) {
+                TCHAR response[MSG_TAM];
+                SetStockPrice(stateServ, nomeEmpresa, novoPreco, response);
+                _tprintf(TEXT("%s\n"), response);
+            }
+            else {
+                _tprintf(TEXT("Erro: O preço deve ser um valor positivo.\n\n"));
+            }
+        }
+        else {
+            _tprintf(TEXT("Erro no comando. Utilize 'stock <nome-empresa> <preço-ação>'\n\n"));
         }
     }
     else if (_tcscmp(command, TEXT("users")) == 0) {
@@ -527,14 +593,20 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
             PauseTrading(stateServ, duration, response);
             _tprintf(TEXT("%s\n"), response);
         }
+        else {
+            _tprintf(TEXT("Erro no comando. Utilize 'pause <número-segundos>'\n\n"));
+        }
     }
     else if (_tcscmp(command, TEXT("close")) == 0) {
         TCHAR response[MSG_TAM];
         CloseSystem(stateServ, response);
         _tprintf(TEXT("%s\n"), response);
     }
+    else if (_tcscmp(command, TEXT("comandos")) == 0) {
+        PrintMenu();
+    }
     else {
-        _tprintf(TEXT("Comando inválido. Tente novamente.\n"));
+        _tprintf(TEXT("Comando inválido. Tente novamente.\n\n"));
     }
 }
 
@@ -590,7 +662,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
 
         buffer[bytesRead / sizeof(TCHAR)] = TEXT('\0');
 
-        _tprintf(TEXT("Received message: %s\n"), buffer);
+        //_tprintf(TEXT("mensagem recebida: %s\n"), buffer);
 
         if (_tcscmp(buffer, TEXT("listc")) == 0) {
             TCHAR response[MSG_TAM];
@@ -616,9 +688,18 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             TCHAR username[50];
 
             if (_stscanf_s(buffer + 4, TEXT("%49s %d %49s"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &numAcoes, username, (unsigned)_countof(username)) == 3) {
-                TCHAR response[MSG_TAM];
-                BuyShares(stateServ, nomeEmpresa, numAcoes, username, response);
-                _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+                if (stateServ->numEmpresas <= 0) {
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Não existem empresas registadas na bolsa neste momento.\n"));
+                }
+                
+                if (numAcoes > 0) {
+                    TCHAR response[MSG_TAM];
+                    BuyShares(stateServ, nomeEmpresa, numAcoes, username, response);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+                }
+                else {
+                    _tcscpy_s(msgResponse.msg, MSG_TAM ,TEXT("O número de ações a comprar deve ser positivo.\n"));
+                }
 
                 DWORD cWritten;
                 ResetEvent(overl.hEvent);
@@ -640,9 +721,18 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             TCHAR username[50];
 
             if (_stscanf_s(buffer + 5, TEXT("%49s %d %49s"), nomeEmpresa, (unsigned)_countof(nomeEmpresa), &numAcoes, username, (unsigned)_countof(username)) == 3) {
-                TCHAR response[MSG_TAM];
-                SellShares(stateServ, nomeEmpresa, numAcoes, username, response);
-                _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+                if (stateServ->numEmpresas <= 0) {
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Não existem empresas registadas na bolsa neste momento.\n"));
+                }
+                
+                if (numAcoes > 0) {
+                    TCHAR response[MSG_TAM];
+                    SellShares(stateServ, nomeEmpresa, numAcoes, username, response);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+                }
+                else {
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("O número de ações a vender deve ser positivo.\n"));
+                }
 
                 DWORD cWritten;
                 ResetEvent(overl.hEvent);
@@ -665,8 +755,8 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
             if (_stscanf_s(buffer + 6, TEXT("%49s %49s"), username, (unsigned)_countof(username), password, (unsigned)_countof(password)) == 2) {
                 BOOL loginValido = verificaLogin(stateServ, username, password);
                 if (loginValido) {
-                    _tprintf(TEXT("Login bem-sucedido para o usuário: %s\n"), username);
-                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_success"));
+                    _tprintf(TEXT("Autenticação bem-sucedida: O utilizador '%s' acabou de iniciar sessão.\n\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Login efetuado com sucesso.\n"));
                     for (int i = 0; i < stateServ->numUtilizadores; ++i) {
                         if (_tcscmp(stateServ->utilizadores[i].username, username) == 0) {
                             stateServ->utilizadores[i].isOnline = TRUE;
@@ -675,8 +765,8 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                     }
                 }
                 else {
-                    _tprintf(TEXT("Falha no login para o usuário: %s\n"), username);
-                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("login_failed"));
+                    //_tprintf(TEXT("Falha no login utilizador: %s\n"), username);
+                    _tcscpy_s(msgResponse.msg, MSG_TAM, TEXT("Erro. Verifique as suas credenciais.\n"));
                 }
 
                 DWORD cWritten;
@@ -700,7 +790,7 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                 double saldo = CheckBalance(stateServ, username);
                 if (saldo != -1) {
                     Msg msgResponse;
-                    _sntprintf_s(msgResponse.msg, MSG_TAM, _TRUNCATE, TEXT("Saldo: %.2lf €"), saldo);
+                    _sntprintf_s(msgResponse.msg, MSG_TAM, _TRUNCATE, TEXT("Saldo: %.2lf €\n"), saldo);
 
                     DWORD cWritten;
                     BOOL fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
@@ -713,6 +803,28 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
                         PrintLastError(TEXT("WriteFile falhou5"));
                         break;
                     }
+                }
+            }
+        }
+        else if (_tcsncmp(buffer, TEXT("wallet "), 7) == 0) {
+            TCHAR username[50];
+
+            if (_stscanf_s(buffer + 7, TEXT("%49s"), username, (unsigned)_countof(username)) == 1) {
+                TCHAR response[MSG_TAM];
+                Wallet(stateServ, response,username);
+                _tcscpy_s(msgResponse.msg, MSG_TAM, response);
+
+                DWORD cWritten;
+                ResetEvent(overl.hEvent);
+                fSuccess = WriteFile(hPipe, &msgResponse, sizeof(Msg), &cWritten, &overl);
+                if (!fSuccess && GetLastError() == ERROR_IO_PENDING) {
+                    WaitForSingleObject(overl.hEvent, INFINITE);
+                    GetOverlappedResult(hPipe, &overl, &cWritten, FALSE);
+                }
+
+                if (!fSuccess) {
+                    PrintLastError(TEXT("WriteFile falhou1"));
+                    break;
                 }
             }
         }
@@ -765,7 +877,7 @@ DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
     TCHAR command[MSG_TAM];
 
     while (1) {
-        _tprintf(TEXT("\nDigite um comando administrativo: "));
+        //_tprintf(TEXT("\n>>"));
         _fgetts(command, MSG_TAM, stdin);
         command[_tcslen(command) - 1] = '\0'; // Remover o caractere de nova linha
         ProcessAdminCommand(stateServ, command);
@@ -783,7 +895,6 @@ int _tmain(int argc, TCHAR* argv[]) {
 
     ServerState stateServ;
     InitializeServerState(&stateServ);
-    ReadUsersFromFile(&stateServ, argv[1]);
 
 #ifdef UNICODE
     _setmode(_fileno(stdin), _O_WTEXT);
@@ -791,143 +902,143 @@ int _tmain(int argc, TCHAR* argv[]) {
     _setmode(_fileno(stderr), _O_WTEXT);
 #endif
 
-    PrintMenu();
+    if (ReadUsersFromFile(&stateServ, argv[1])) {
+        PrintMenu();
 
-    HANDLE hAdminThread = CreateThread(
-        NULL, 0,
-        AdminCommandThread,
-        &stateServ,
-        0, NULL
-    );
-
-    if (hAdminThread == NULL) {
-        PrintLastError(TEXT("AdminCommandThread creation failed"));
-        return -1;
-    }
-
-    if (!InitializeSharedResources(&stateServ)) {
-        return -1;
-    }
-
-    // Não precisa mais de mapeamento de memória aqui, já foi feito em InitializeSharedResources
-
-    LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
-
-    while (1) {
-        _tprintf(TEXT("\nServer - main loop - creating named pipe - %s"), lpszPipename);
-
-        HANDLE hPipe = CreateNamedPipe(
-            lpszPipename,
-            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-            PIPE_UNLIMITED_INSTANCES,
-            BUFSIZ, BUFSIZ,
-            5000,
-            NULL
+        HANDLE hAdminThread = CreateThread(
+            NULL, 0,
+            AdminCommandThread,
+            &stateServ,
+            0, NULL
         );
 
-        if (hPipe == INVALID_HANDLE_VALUE) {
-            PrintLastError(TEXT("CreateNamedPipe failed"));
+        if (hAdminThread == NULL) {
+            PrintLastError(TEXT("AdminCommandThread creation failed"));
             return -1;
         }
 
-        OVERLAPPED ol = { 0 };
-        ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        if (ol.hEvent == NULL) {
-            PrintLastError(TEXT("CreateEvent failed for OVERLAPPED"));
-            CloseHandle(hPipe);
+        if (!InitializeSharedResources(&stateServ)) {
             return -1;
         }
 
-        BOOL fConnected = ConnectNamedPipe(hPipe, &ol) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
-        if (!fConnected) {
-            if (GetLastError() == ERROR_IO_PENDING) {
-                HANDLE waitHandles[] = { ol.hEvent, stateServ.closeEvent };
-                DWORD dwWait = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
-                if (dwWait == WAIT_OBJECT_0) {
-                    fConnected = TRUE;
-                }
-                else if (dwWait == WAIT_OBJECT_0 + 1) {
-                    _tprintf(TEXT("Encerrando servidor principal.\n"));
-                    CloseHandle(hPipe);
-                    CloseHandle(ol.hEvent);
-                    break;
+        LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
+
+        while (1) {
+            //_tprintf(TEXT("\nServer - loop main - criou namedpipe - %s"), lpszPipename);
+
+            HANDLE hPipe = CreateNamedPipe(
+                lpszPipename,
+                PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+                PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+                PIPE_UNLIMITED_INSTANCES,
+                BUFSIZ, BUFSIZ,
+                5000,
+                NULL
+            );
+
+            if (hPipe == INVALID_HANDLE_VALUE) {
+                PrintLastError(TEXT("CreateNamedPipe failed"));
+                return -1;
+            }
+
+            OVERLAPPED ol = { 0 };
+            ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+            if (ol.hEvent == NULL) {
+                PrintLastError(TEXT("CreateEvent failed for OVERLAPPED"));
+                CloseHandle(hPipe);
+                return -1;
+            }
+
+            BOOL fConnected = ConnectNamedPipe(hPipe, &ol) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+            if (!fConnected) {
+                if (GetLastError() == ERROR_IO_PENDING) {
+                    HANDLE waitHandles[] = { ol.hEvent, stateServ.closeEvent };
+                    DWORD dwWait = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+                    if (dwWait == WAIT_OBJECT_0) {
+                        fConnected = TRUE;
+                    }
+                    else if (dwWait == WAIT_OBJECT_0 + 1) {
+                        _tprintf(TEXT("A encerrar o servidor principal...\n"));
+                        CloseHandle(hPipe);
+                        CloseHandle(ol.hEvent);
+                        break;
+                    }
+                    else {
+                        PrintLastError(TEXT("WaitForMultipleObjects failed"));
+                        CloseHandle(hPipe);
+                        CloseHandle(ol.hEvent);
+                        return -1;
+                    }
                 }
                 else {
-                    PrintLastError(TEXT("WaitForMultipleObjects failed"));
+                    PrintLastError(TEXT("ConnectNamedPipe failed"));
                     CloseHandle(hPipe);
                     CloseHandle(ol.hEvent);
                     return -1;
                 }
             }
-            else {
-                PrintLastError(TEXT("ConnectNamedPipe failed"));
-                CloseHandle(hPipe);
-                CloseHandle(ol.hEvent);
-                return -1;
-            }
-        }
 
-        if (fConnected) {
-            _tprintf(TEXT("\nClient connected. Creating a thread for it."));
+            if (fConnected) {
+                _tprintf(TEXT("\nConexão estabelecida: Um utilizador acabou de se ligar ao servidor.\n\n"));
 
-            // Encontrar um slot vazio para o novo cliente
-            int slot = adicionaCliente(&stateServ, hPipe);
+                // Encontrar um slot vazio para o novo cliente
+                int slot = adicionaCliente(&stateServ, hPipe);
 
-            if (slot == -1) {
-                _tprintf(TEXT("Número máximo de clientes atingido.\n"));
-                DisconnectNamedPipe(hPipe);
-                CloseHandle(hPipe);
-                CloseHandle(ol.hEvent);
-                continue;
-            }
+                if (slot == -1) {
+                    _tprintf(TEXT("Número máximo de clientes atingido.\n"));
+                    DisconnectNamedPipe(hPipe);
+                    CloseHandle(hPipe);
+                    CloseHandle(ol.hEvent);
+                    continue;
+                }
 
-            stateServ.currentPipe = hPipe; // Configura o pipe atual no estado do servidor
+                stateServ.currentPipe = hPipe; // Configura o pipe atual no estado do servidor
 
-            HANDLE hThread = CreateThread(
-                NULL, 0,
-                InstanceThread,
-                (LPVOID)&stateServ, // Passar o ponteiro do estado do servidor para a thread
-                0, NULL
-            );
+                HANDLE hThread = CreateThread(
+                    NULL, 0,
+                    InstanceThread,
+                    (LPVOID)&stateServ, // Passar o ponteiro do estado do servidor para a thread
+                    0, NULL
+                );
 
-            if (hThread == NULL) {
-                PrintLastError(TEXT("Thread creation failed"));
-                CloseHandle(hPipe);
-                CloseHandle(ol.hEvent);
-                return -1;
+                if (hThread == NULL) {
+                    PrintLastError(TEXT("Thread creation failed"));
+                    CloseHandle(hPipe);
+                    CloseHandle(ol.hEvent);
+                    return -1;
+                }
+                else {
+                    CloseHandle(hThread);
+                }
             }
             else {
-                CloseHandle(hThread);
+                CloseHandle(hPipe);
+                CloseHandle(ol.hEvent);
+            }
+
+            // Verificar se o sistema deve ser fechado
+            if (WaitForSingleObject(stateServ.closeEvent, 0) == WAIT_OBJECT_0) {
+                _tprintf(TEXT("Encerrando servidor principal.\n"));
+                break;
             }
         }
-        else {
-            CloseHandle(hPipe);
-            CloseHandle(ol.hEvent);
+
+        // Encerrar todos os clientes restantes
+        for (int i = 0; i < MAXCLIENTES; ++i) {
+            if (stateServ.clientPipes[i] != NULL) {
+                DisconnectNamedPipe(stateServ.clientPipes[i]);
+                CloseHandle(stateServ.clientPipes[i]);
+                stateServ.clientPipes[i] = NULL;
+            }
         }
 
-        // Verificar se o sistema deve ser fechado
-        if (WaitForSingleObject(stateServ.closeEvent, 0) == WAIT_OBJECT_0) {
-            _tprintf(TEXT("Encerrando servidor principal.\n"));
-            break;
-        }
+        ReleaseMutex(stateServ.closeMutex);
+        CloseHandle(hAdminThread);
+        CloseHandle(stateServ.closeEvent);
+        CloseHandle(stateServ.closeMutex);
+
+        CleanupSharedResources(&stateServ);
     }
-
-    // Encerrar todos os clientes restantes
-    for (int i = 0; i < MAXCLIENTES; ++i) {
-        if (stateServ.clientPipes[i] != NULL) {
-            DisconnectNamedPipe(stateServ.clientPipes[i]);
-            CloseHandle(stateServ.clientPipes[i]);
-            stateServ.clientPipes[i] = NULL;
-        }
-    }
-
-    ReleaseMutex(stateServ.closeMutex);
-    CloseHandle(hAdminThread);
-    CloseHandle(stateServ.closeEvent);
-    CloseHandle(stateServ.closeMutex);
-
-    CleanupSharedResources(&stateServ);
 
     return 0;
 }

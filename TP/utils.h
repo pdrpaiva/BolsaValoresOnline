@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
     TCHAR nomeEmpresa[50];
     int numAcoes;
+    double precoCompra;
 } CarteiraAcoes;
 
 typedef struct {
@@ -115,6 +116,8 @@ void PauseTrading(ServerState* state, int duration, TCHAR* response);
 void NotifyClients(ServerState* state, const TCHAR* message);
 void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor);
 BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes);
+BOOL ReadUsersFromFile(ServerState* state, const TCHAR* filename);
+void Wallet(ServerState* state, TCHAR* response, TCHAR* username);
 //--------------------------------------//--------------------------------------//--------------------------------------//
 
 //Bolsa : 
