@@ -3,20 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}|board\\board.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}|board\\board.vcxproj|solutionrelative:board\\board.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|solutionrelative:boardgui\\boardgui.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{98F119AD-89CB-4F19-9B78-7239AB438259}|Bolsa\\Bolsa.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{98F119AD-89CB-4F19-9B78-7239AB438259}|Bolsa\\Bolsa.vcxproj|solutionrelative:Bolsa\\bolsa.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.rc||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|solutionrelative:boardgui\\boardgui.rc||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|solutionrelative:utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|solutionrelative:Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\resource.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{83FE1302-7554-40EF-8057-5DDBFF8EBDB2}|boardgui\\boardgui.vcxproj|solutionrelative:boardgui\\resource.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -26,63 +22,50 @@
       "DocumentGroups": [
         {
           "DockedWidth": 280,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "board.c",
-              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c",
-              "RelativeDocumentMoniker": "board\\board.c",
-              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c",
-              "RelativeToolTip": "board\\board.c",
-              "ViewState": "AQIAAC0AAAAAAAAAAAAAADoAAAAnAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2024-05-17T15:15:42.578Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "cliente.c",
-              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c",
-              "RelativeDocumentMoniker": "Cliente\\cliente.c",
-              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c",
-              "RelativeToolTip": "Cliente\\cliente.c",
-              "ViewState": "AQIAANoAAAAAAAAAAAAkwAsBAAAVAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2024-05-13T20:50:00.287Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "bolsa.c",
-              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c",
-              "RelativeDocumentMoniker": "Bolsa\\bolsa.c",
-              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c",
-              "RelativeToolTip": "Bolsa\\bolsa.c",
-              "ViewState": "AQIAAE8BAAAAAAAAAAAqwGYBAAAPAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
-              "WhenOpened": "2024-05-13T16:01:52.404Z",
+              "Title": "boardgui.rc",
+              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.rc",
+              "RelativeDocumentMoniker": "boardgui\\boardgui.rc",
+              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.rc",
+              "RelativeToolTip": "boardgui\\boardgui.rc",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABcAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001005|",
+              "WhenOpened": "2024-05-18T00:47:28.581Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "utils.h",
-              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h",
-              "RelativeDocumentMoniker": "utils.h",
-              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h",
-              "RelativeToolTip": "utils.h",
-              "ViewState": "AQIAAGAAAAAAAAAAAAAAAG8AAABVAAAA",
+              "Title": "resource.h",
+              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\resource.h",
+              "RelativeDocumentMoniker": "boardgui\\resource.h",
+              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\resource.h",
+              "RelativeToolTip": "boardgui\\resource.h",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABEAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-05-14T12:33:00.903Z",
+              "WhenOpened": "2024-05-18T00:42:26.823Z",
               "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "boardgui.c",
+              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.c",
+              "RelativeDocumentMoniker": "boardgui\\boardgui.c",
+              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\boardgui\\boardgui.c",
+              "RelativeToolTip": "boardgui\\boardgui.c",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAsAAAAOAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2024-05-18T00:33:27.576Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
             }
           ]
         }

@@ -1,3 +1,9 @@
 ﻿  boardgui.c
-C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\boardgui\boardgui.c(171,37): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
-  boardgui.vcxproj -> C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\x64\Debug\boardgui.exe
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\boardgui\resource.h(6,1): warning C4005: 'IDI_APPLICATION': redefinição de macro
+  (compilando o arquivo fonte 'boardgui.c')
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um\winuser.h(11092,1):
+  consulte a definição anterior de 'IDI_APPLICATION'
+  
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\boardgui\boardgui.c(159,103): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
+C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\boardgui\boardgui.c(168,43): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
+  boardgui.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\boardgui.exe
