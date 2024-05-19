@@ -93,7 +93,7 @@ DWORD WINAPI PrecosAcoesThread(LPVOID lpParam) {
 
     while (state->running) {
         AtualizarPrecosAcoes(state);
-        Sleep(8000);
+        Sleep(10000);
     }
 
     return 0;

@@ -3,16 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|solutionrelative:utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{98F119AD-89CB-4F19-9B78-7239AB438259}|Bolsa\\Bolsa.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{98F119AD-89CB-4F19-9B78-7239AB438259}|Bolsa\\Bolsa.vcxproj|solutionrelative:Bolsa\\bolsa.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|solutionrelative:Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}|board\\board.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{18B193F2-B4D4-4F22-AA93-643A80B3A5EA}|board\\board.vcxproj|solutionrelative:board\\board.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
-      "RelativeMoniker": "D:0:0:{2D221D66-D487-43E0-80D2-5F827FBEB618}|HeaderFiles{2D221D66-D487-43E0-80D2-5F827FBEB618}|solutionrelative:utils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+      "AbsoluteMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{8F27BCEA-E442-4EAA-997C-3A0B008D1D5B}|Cliente\\Cliente.vcxproj|solutionrelative:Cliente\\cliente.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 280,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -30,39 +34,52 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
+              "Title": "board.c",
+              "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c",
+              "RelativeDocumentMoniker": "board\\board.c",
+              "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\board\\board.c",
+              "RelativeToolTip": "board\\board.c",
+              "ViewState": "AQIAAGMAAAAAAAAAAAAIwGgAAAAWAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2024-05-19T01:23:22.972Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "bolsa.c",
               "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c",
               "RelativeDocumentMoniker": "Bolsa\\bolsa.c",
               "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Bolsa\\bolsa.c",
               "RelativeToolTip": "Bolsa\\bolsa.c",
-              "ViewState": "AQIAAFoAAAAAAAAAAAAAAIAAAAAwAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAUAAAAnAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2024-05-18T16:49:57.31Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "cliente.c",
               "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c",
               "RelativeDocumentMoniker": "Cliente\\cliente.c",
               "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\Cliente\\cliente.c",
               "RelativeToolTip": "Cliente\\cliente.c",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAGkAAAAuAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABgAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
               "WhenOpened": "2024-05-18T16:12:57.879Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "utils.h",
               "DocumentMoniker": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h",
               "RelativeDocumentMoniker": "utils.h",
               "ToolTip": "C:\\Users\\ppedr\\OneDrive\\Ambiente de Trabalho\\ISEC\\SO2\\TP\\BolsaValoresOnline\\TP\\utils.h",
               "RelativeToolTip": "utils.h",
-              "ViewState": "AQIAAFoAAAAAAAAAAAAIwGUAAAA4AAAA",
+              "ViewState": "AQIAAGQAAAAAAAAAAAAIwGkAAAAMAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2024-05-18T15:09:23.746Z",
               "EditorCaption": ""
