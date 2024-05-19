@@ -122,7 +122,7 @@ int _tmain(int argc, TCHAR* argv[]) {
     while (1) {
         WaitForSingleObject(hEvent, INFINITE); // Espera pelo evento
         PrintTopCompaniesAndLastTransaction(pSharedData, hMutex, N);
-        ResetEvent(hEvent); // Reseta o evento após ser sinalizado
+        ResetEvent(hEvent); 
     }
 
     CloseHandle(hEvent);

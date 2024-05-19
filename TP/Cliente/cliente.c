@@ -4,7 +4,7 @@
 #include <io.h>
 #include <fcntl.h>
 
-void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent) {
+void readTChars(TCHAR* p, int maxChars, HANDLE shutdownEvent) {
     //_tprintf(TEXT("\n>> "));
     size_t len = 0;
     while (TRUE) {
@@ -49,7 +49,7 @@ DWORD WINAPI ThreadClientReader(LPVOID lparam) {
                 PrintMenuCliente();
             }
             else if (_tcscmp(fromServer.msg, TEXT("Bolsa encerrada.")) == 0) {
-                _tprintf(TEXT("Servidor está encerrando. Cliente irá desconectar...\n"));
+                _tprintf(TEXT("Servidor está a encerrar. Cliente irá desconectar...\n"));
                 SetEvent(stateCli->shutdownEvent);
                 break;
             }
@@ -226,7 +226,7 @@ int _tmain(int argc, LPTSTR argv[]) {
             break;
         }
 
-        readTCharsWithTimeout(MsgToSend.msg, MSG_TAM, stateCli.shutdownEvent);
+        readTChars(MsgToSend.msg, MSG_TAM, stateCli.shutdownEvent);
 
         if (_tcscmp(MsgToSend.msg, TEXT("exit")) == 0) {
             Msg msgResponse;

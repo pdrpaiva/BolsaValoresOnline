@@ -1,4 +1,4 @@
 ﻿  boardgui.c
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\boardgui\boardgui.c(234,113): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\boardgui\boardgui.c(239,72): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
-  boardgui.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\boardgui.exe
+C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\boardgui\boardgui.c(235,113): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
+C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\boardgui\boardgui.c(241,72): warning C4267: 'função': conversão de 'size_t' para 'int', possível perda de dados
+  boardgui.vcxproj -> C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\x64\Debug\boardgui.exe

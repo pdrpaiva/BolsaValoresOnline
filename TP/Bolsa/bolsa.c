@@ -225,15 +225,15 @@ void Wallet(ServerState* state, TCHAR* response, TCHAR* username) {
             else {
                 _stprintf_s(response, MSG_TAM, TEXT("Neste momento não possui nenhuma ação.\n"));
             }
-            return;  // Finalizar a função após encontrar o usuário
+            return;  // Finalizar a função após encontrar o utilizador
         }
     }
-    _stprintf_s(response, MSG_TAM, TEXT("Usuário não encontrado.\n"));  // Caso o usuário não seja encontrado
+    _stprintf_s(response, MSG_TAM, TEXT("Utilizador não encontrado.\n"));  
 }
 
 
 
-BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
+BOOL RegistaVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes) {
     for (int i = 0; i < utilizador->numAcoes; ++i) {
         if (_tcscmp(utilizador->carteira[i].nomeEmpresa, nomeEmpresa) == 0) {
             utilizador->carteira[i].numAcoes -= numAcoes;
@@ -273,7 +273,7 @@ BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
     return FALSE;
 }
 
-void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor) {
+void RegistaTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor) {
     WaitForSingleObject(state->hMutex, INFINITE); // Aguarde o mutex para sincronizar o acesso
     SharedData* pSharedData = (SharedData*)MapViewOfFile(state->hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedData));
     if (pSharedData != NULL) {
@@ -310,7 +310,7 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                                 }
 
                                 _stprintf_s(response, MSG_TAM, TEXT("Compra realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                                RegistrarTransacao(state, nomeEmpresa, numAcoes, state->empresas[i].precoAcao * numAcoes); // Registra a transação
+                                RegistaTransacao(state, nomeEmpresa, numAcoes, state->empresas[i].precoAcao * numAcoes); // Registra a transação
                                 UpdateSharedData(state);
                                 SetEvent(state->hEvent); // Sinaliza o evento de atualização
                                 return;
@@ -350,7 +350,7 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                     if (state->utilizadores[i].carteira[j].numAcoes >= numAcoes) {
                         for (int k = 0; k < state->numEmpresas; ++k) {
                             if (_tcscmp(state->empresas[k].nomeEmpresa, nomeEmpresa) == 0) {
-                                BOOL sucesso = RegistrarVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
+                                BOOL sucesso = RegistaVenda(&state->utilizadores[i], nomeEmpresa, numAcoes);
                                 if (sucesso) {
                                     double precoVenda = state->empresas[k].precoAcao * numAcoes;
                                     state->empresas[k].numAcoes += numAcoes;
@@ -359,7 +359,7 @@ void SellShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, cons
                                     state->utilizadores[i].saldo += precoVenda;
 
                                     _stprintf_s(response, MSG_TAM, TEXT("Venda realizada: %d ações de %s.\n"), numAcoes, nomeEmpresa);
-                                    RegistrarTransacao(state, nomeEmpresa, -numAcoes, precoVenda);
+                                    RegistaTransacao(state, nomeEmpresa, -numAcoes, precoVenda);
                                     UpdateSharedData(state);
                                     SetEvent(state->hEvent); // Sinaliza o evento
                                     return;
@@ -646,7 +646,7 @@ void ProcessAdminCommand(ServerState* stateServ, TCHAR* command) {
 DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     ServerState* stateServ = (ServerState*)lpvParam;
     HANDLE hPipe = stateServ->currentPipe;
-    TCHAR buffer[MSG_TAM * 2]; // Buffer para armazenar dados lidos parcialmente
+    TCHAR buffer[MSG_TAM * 2];
     Msg msgResponse;
     DWORD bytesRead = 0;
     BOOL fSuccess;

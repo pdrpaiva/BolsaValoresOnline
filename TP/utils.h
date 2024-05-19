@@ -70,13 +70,13 @@ typedef struct {
 typedef struct {
     Empresa empresas[MAX_EMPRESAS];
     Utilizador utilizadores[MAX_UTILIZADORES];
-    HANDLE clientPipes[MAXCLIENTES]; // Array de handles para os pipes dos clientes
-    HANDLE writeReady;               // Handle para o evento de escrita pronta
+    HANDLE clientPipes[MAXCLIENTES]; 
+    HANDLE writeReady;               
     HANDLE readEvent;
     HANDLE closeEvent;
     HANDLE closeMutex;
     HANDLE pipeAux;
-    HANDLE currentPipe; // Adicionado para armazenar o handle do pipe atual
+    HANDLE currentPipe; 
     int numEmpresas;
     int numUtilizadores;
     BOOL running;
@@ -96,7 +96,7 @@ typedef struct {
 // Cliente:
 
 void PrintMenuCliente();
-void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent);
+void readTChars(TCHAR* p, int maxChars, HANDLE shutdownEvent);
 void ClientCommands(ClientState* stateCli, TCHAR* command);
 void CloseClientPipe(ClientState* stateCli);
 void WriteToPipe(ClientState* stateCli, Msg* MsgToSend);
@@ -117,8 +117,8 @@ BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
 double CheckBalance(ServerState* state, TCHAR* username);
 void PauseTrading(ServerState* state, int duration, TCHAR* response);
 void NotifyClients(ServerState* state, const TCHAR* message);
-void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor);
-BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes);
+void RegistaTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor);
+BOOL RegistaVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes);
 BOOL ReadUsersFromFile(ServerState* state, const TCHAR* filename);
 void Wallet(ServerState* state, TCHAR* response, TCHAR* username);
 void AtualizarPrecosAcoes(ServerState* state);

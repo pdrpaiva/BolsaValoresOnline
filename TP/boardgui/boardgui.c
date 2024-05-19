@@ -1,8 +1,8 @@
 #include <windows.h>
 #include <tchar.h>
-#include "../utils.h"  // Certifique-se de que o caminho para utils.h está correto
+#include "../utils.h"  
 
-// Definições de IDs de menu e controle
+
 #define IDM_ABOUT 100
 #define IDM_EXIT 101
 #define IDC_SCALEMIN 200
@@ -22,10 +22,10 @@ typedef struct {
     int n;
     double scaleMin;
     double scaleMax;
-    TCHAR transactionType[10]; // Campo para armazenar o tipo de transação
+    TCHAR transactionType[10]; 
 } AppState;
 
-// Declaração de funções
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void DrawGraph(HWND hWnd, AppState* appState);
 void DrawLastTransaction(HDC hdc, AppState* appState);
@@ -76,7 +76,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
 
     if (!RegisterClassEx(&wcex)) {
-        MessageBox(NULL, _T("Falha ao registrar a classe da janela."), _T("Erro"), MB_OK);
+        MessageBox(NULL, _T("Falha ao registar a classe da janela."), _T("Erro"), MB_OK);
         return 1;
     }
 
@@ -149,7 +149,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
-        // Parse the menu selections:
+
         switch (wmId) {
         case IDC_UPDATE:
             GetWindowText(appState->hScaleMin, buffer, 16);
@@ -184,7 +184,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                  break;
 
     case WM_TIMER:
-        InvalidateRect(hWnd, NULL, TRUE); // Invalidate the window to trigger a repaint
+        InvalidateRect(hWnd, NULL, TRUE); 
         break;
 
     case WM_DESTROY:
@@ -201,14 +201,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 void DrawGraph(HWND hWnd, AppState* appState) {
     RECT rect;
     GetClientRect(hWnd, &rect);
-    rect.right -= 170; // Ajustar a área de desenho para a esquerda para dar espaço aos controles
+    rect.right -= 170; // Ajustar a área de desenho para a esquerda para dar espaço 
     int width = rect.right - rect.left;
     int height = rect.bottom - rect.top;
     HDC hdc = GetDC(hWnd);
 
     WaitForSingleObject(appState->hMutex, INFINITE);
 
-    // Sort the companies by stock price in descending order
+
+    // Ordenar empresas 
     for (int i = 0; i < appState->pSharedData->numEmpresas - 1; ++i) {
         for (int j = i + 1; j < appState->pSharedData->numEmpresas; ++j) {
             if (appState->pSharedData->empresas[j].precoAcao > appState->pSharedData->empresas[i].precoAcao) {
@@ -219,21 +220,22 @@ void DrawGraph(HWND hWnd, AppState* appState) {
         }
     }
 
-    // Draw bars for the top N companies
+    // Desenhar barras
     int barWidth = width / (appState->n * 2);
     for (int i = 0; i < appState->n && i < appState->pSharedData->numEmpresas; ++i) {
         int barHeight = (int)(((appState->pSharedData->empresas[i].precoAcao - appState->scaleMin) / (appState->scaleMax - appState->scaleMin)) * height);
         RECT barRect = { i * 2 * barWidth, height - barHeight, (i * 2 + 1) * barWidth, height };
 
-        // Change the color of the bars to green
+        // Usar verde para as cores das barras
         HBRUSH hBrush = CreateSolidBrush(RGB(0, 128, 0));
         FillRect(hdc, &barRect, hBrush);
         DeleteObject(hBrush);
 
-        // Draw the company name
+        // Desenhar o nome da empresa
         TextOut(hdc, i * 2 * barWidth, height - barHeight - 40, appState->pSharedData->empresas[i].nomeEmpresa, _tcslen(appState->pSharedData->empresas[i].nomeEmpresa));
 
-        // Draw the stock price below the company name
+
+        // Dessenhar o preço da ação 
         TCHAR price[16];
         _stprintf_s(price, 16, _T("%.2f"), appState->pSharedData->empresas[i].precoAcao);
         TextOut(hdc, i * 2 * barWidth, height - barHeight - 20, price, _tcslen(price));
@@ -246,14 +248,15 @@ void DrawGraph(HWND hWnd, AppState* appState) {
 void DrawLastTransaction(HDC hdc, AppState* appState) {
     SharedData* pSharedData = appState->pSharedData;
 
-    // Set the font and color for the text
+ 
     HFONT hFont = CreateFont(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Arial"));
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetTextColor(hdc, RGB(0, 0, 255));
     SetBkMode(hdc, TRANSPARENT);
 
-    // Determine if the transaction was a purchase or sale
+
+    // Determinar se a última transação foi uma compra ou venda
     if (pSharedData->ultimaTransacao.numAcoes > 0) {
         _tcscpy_s(appState->transactionType, 10, _T("Compra"));
     }

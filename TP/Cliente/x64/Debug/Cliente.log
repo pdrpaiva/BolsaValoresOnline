@@ -1,3 +1,3 @@
 ﻿  cliente.c
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(15,13): warning C4013: '_kbhit' indefinido; assumindo extern retornando int
-  Cliente.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Cliente.exe
+C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\Cliente\cliente.c(15,13): warning C4013: '_kbhit' indefinido; assumindo extern retornando int
+  Cliente.vcxproj -> C:\Users\35191\Documents\GitHub\tpSO2\BolsaValoresOnline\TP\x64\Debug\Cliente.exe
