@@ -88,6 +88,17 @@ DWORD WINAPI ResumeTradingAfterPause(LPVOID lpParam) {
     return 0;
 }
 
+DWORD WINAPI PrecosAcoesThread(LPVOID lpParam) {
+    ServerState* state = (ServerState*)lpParam;
+
+    while (state->running) {
+        AtualizarPrecosAcoes(state);
+        Sleep(8000);
+    }
+
+    return 0;
+}
+
 void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     if (state->tradingPaused) {
         _stprintf_s(response, MSG_TAM, TEXT("As operações já se encontram suspensas.\n"));
@@ -103,6 +114,29 @@ void PauseTrading(ServerState* state, int duration, TCHAR* response) {
     // Cria uma thread para gerenciar o tempo de pausa
     CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ResumeTradingAfterPause, state, 0, NULL);
 }
+
+void AtualizarPrecosAcoes(ServerState* state) {
+    WaitForSingleObject(state->hMutex, INFINITE);
+
+    srand((unsigned int)time(NULL)); // Inicializa a semente para números aleatórios
+
+    for (int i = 0; i < state->numEmpresas; ++i) {
+        double variacao = ((rand() % 201) - 100) / 100.0; // Variação de -1.00 a +1.00
+        state->empresas[i].precoAcao += variacao;
+
+        // Garantir que o preço não seja negativo ou zero
+        if (state->empresas[i].precoAcao < 0.01) {
+            state->empresas[i].precoAcao = 0.01;
+        }
+    }
+    if(state->numEmpresas > 0) {
+        UpdateSharedData(state); // Atualiza a memória compartilhada
+        SetEvent(state->hEvent); // Sinaliza o evento de atualização
+    }
+
+    ReleaseMutex(state->hMutex);
+}
+
 
 void NotifyClients(ServerState* state, const TCHAR* message) {
     for (int i = 0; i < MAXCLIENTES; ++i) {
@@ -155,7 +189,7 @@ double CheckBalance(ServerState* state, TCHAR* username) {
 
 void Wallet(ServerState* state, TCHAR* response, TCHAR* username) {
     for (int i = 0; i < state->numUtilizadores; i++) {
-        // Encontra o usuário
+        // Encontra o ~utilizador
         if (_tcscmp(username, state->utilizadores[i].username) == 0) {
             TCHAR buffer[MSG_TAM];
             double lucroTotal = 0.0;
@@ -235,9 +269,8 @@ BOOL RegistrarCompra(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAc
         utilizador->numAcoes++;
         return TRUE;
     }
-    else {
-        return FALSE;
-    }
+    
+    return FALSE;
 }
 
 void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double valor) {
@@ -272,7 +305,7 @@ void BuyShares(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, const
                                 state->empresas[i].numAcoes -= numAcoes;
                                 state->utilizadores[j].saldo -= state->empresas[i].precoAcao * numAcoes;
                                 _tprintf(TEXT("Foram compradas %d ações da empresa '%s' a %.2f €.\n\n"), numAcoes, nomeEmpresa, state->empresas[i].precoAcao);
-                                for (int v = 0; v < numAcoes; v++) {
+                                for (int k = 0; k < numAcoes; k++) {
                                     state->empresas[i].precoAcao = state->empresas[i].precoAcao * 1.01;
                                 }
 
@@ -410,20 +443,20 @@ int adicionaCliente(ServerState* stateServ, HANDLE hCli) {
     return -1;
 }
 
-void removeCliente(ServerState* stateServ, HANDLE hCli) {
-    for (int i = 0; i < MAXCLIENTES; ++i) {
-        if (stateServ->clientPipes[i] == hCli) {
-            CloseHandle(stateServ->clientPipes[i]);
-            stateServ->clientPipes[i] = NULL;
-            if (stateServ->readEvent != NULL) {
-                CloseHandle(stateServ->readEvent);
-                stateServ->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-            }
-            _tprintf(TEXT("\nClient %d disconnected."), i);
-            break;
-        }
-    }
-}
+//void removeCliente(ServerState* stateServ, HANDLE hCli) {
+//    for (int i = 0; i < MAXCLIENTES; ++i) {
+//        if (stateServ->clientPipes[i] == hCli) {
+//            CloseHandle(stateServ->clientPipes[i]);
+//            stateServ->clientPipes[i] = NULL;
+//            if (stateServ->readEvent != NULL) {
+//                CloseHandle(stateServ->readEvent);
+//                stateServ->readEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+//            }
+//            _tprintf(TEXT("\nClient %d disconnected."), i);
+//            break;
+//        }
+//    }
+//}
 
 void AddCompany(ServerState* state, const TCHAR* nomeEmpresa, int numAcoes, double precoAcao, TCHAR* response) {
     if (state->numEmpresas < MAX_EMPRESAS) {
@@ -869,9 +902,6 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam) {
     return 0;
 }
 
-
-
-
 DWORD WINAPI AdminCommandThread(LPVOID lpvParam) {
     ServerState* stateServ = (ServerState*)lpvParam;
     TCHAR command[MSG_TAM];
@@ -921,11 +951,23 @@ int _tmain(int argc, TCHAR* argv[]) {
             return -1;
         }
 
+        // Cria a thread para atualizar os preços das ações
+        stateServ.running = TRUE;
+        HANDLE hPrecoThread = CreateThread(
+            NULL, 0,
+            PrecosAcoesThread,
+            &stateServ,
+            0, NULL
+        );
+
+        if (hPrecoThread == NULL) {
+            PrintLastError(TEXT("PrecosAcoesThread creation failed"));
+            return -1;
+        }
+
         LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
 
         while (1) {
-            //_tprintf(TEXT("\nServer - loop main - criou namedpipe - %s"), lpszPipename);
-
             HANDLE hPipe = CreateNamedPipe(
                 lpszPipename,
                 PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
@@ -981,7 +1023,6 @@ int _tmain(int argc, TCHAR* argv[]) {
             if (fConnected) {
                 _tprintf(TEXT("\nConexão estabelecida: Um utilizador acabou de se ligar ao servidor.\n\n"));
 
-                // Encontrar um slot vazio para o novo cliente
                 int slot = adicionaCliente(&stateServ, hPipe);
 
                 if (slot == -1) {
@@ -992,12 +1033,12 @@ int _tmain(int argc, TCHAR* argv[]) {
                     continue;
                 }
 
-                stateServ.currentPipe = hPipe; // Configura o pipe atual no estado do servidor
+                stateServ.currentPipe = hPipe;
 
                 HANDLE hThread = CreateThread(
                     NULL, 0,
                     InstanceThread,
-                    (LPVOID)&stateServ, // Passar o ponteiro do estado do servidor para a thread
+                    (LPVOID)&stateServ,
                     0, NULL
                 );
 
@@ -1016,14 +1057,16 @@ int _tmain(int argc, TCHAR* argv[]) {
                 CloseHandle(ol.hEvent);
             }
 
-            // Verificar se o sistema deve ser fechado
             if (WaitForSingleObject(stateServ.closeEvent, 0) == WAIT_OBJECT_0) {
                 _tprintf(TEXT("Encerrando servidor principal.\n"));
                 break;
             }
         }
 
-        // Encerrar todos os clientes restantes
+        stateServ.running = FALSE;
+        WaitForSingleObject(hPrecoThread, INFINITE);
+        CloseHandle(hPrecoThread);
+
         for (int i = 0; i < MAXCLIENTES; ++i) {
             if (stateServ.clientPipes[i] != NULL) {
                 DisconnectNamedPipe(stateServ.clientPipes[i]);
@@ -1042,3 +1085,172 @@ int _tmain(int argc, TCHAR* argv[]) {
 
     return 0;
 }
+
+//int _tmain(int argc, TCHAR* argv[]) {
+//    if (argc < 2) {
+//        _tprintf(TEXT("Uso: %s <ficheiro_utilizadores>\n"), argv[0]);
+//        return 1;
+//    }
+//
+//    ServerState stateServ;
+//    InitializeServerState(&stateServ);
+//
+//#ifdef UNICODE
+//    _setmode(_fileno(stdin), _O_WTEXT);
+//    _setmode(_fileno(stdout), _O_WTEXT);
+//    _setmode(_fileno(stderr), _O_WTEXT);
+//#endif
+//
+//    if (ReadUsersFromFile(&stateServ, argv[1])) {
+//        PrintMenu();
+//
+//        HANDLE hAdminThread = CreateThread(
+//            NULL, 0,
+//            AdminCommandThread,
+//            &stateServ,
+//            0, NULL
+//        );
+//
+//        if (hAdminThread == NULL) {
+//            PrintLastError(TEXT("AdminCommandThread creation failed"));
+//            return -1;
+//        }
+//
+//        if (!InitializeSharedResources(&stateServ)) {
+//            return -1;
+//        }
+//
+//        // Cria a thread para atualizar os preços das ações
+//        stateServ.running = TRUE;
+//        HANDLE hPrecoThread = CreateThread(
+//            NULL, 0,
+//            PrecosAcoesThread,
+//            &stateServ,
+//            0, NULL
+//        );
+//
+//        if (hPrecoThread == NULL) {
+//            PrintLastError(TEXT("PrecosAcoesThread creation failed"));
+//            return -1;
+//        }
+//
+//        LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\teste");
+//
+//        while (1) {
+//            HANDLE hPipe = CreateNamedPipe(
+//                lpszPipename,
+//                PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+//                PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+//                PIPE_UNLIMITED_INSTANCES,
+//                BUFSIZ, BUFSIZ,
+//                5000,
+//                NULL
+//            );
+//
+//            if (hPipe == INVALID_HANDLE_VALUE) {
+//                PrintLastError(TEXT("CreateNamedPipe failed"));
+//                return -1;
+//            }
+//
+//            OVERLAPPED ol = { 0 };
+//            ol.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+//            if (ol.hEvent == NULL) {
+//                PrintLastError(TEXT("CreateEvent failed for OVERLAPPED"));
+//                CloseHandle(hPipe);
+//                return -1;
+//            }
+//
+//            BOOL fConnected = ConnectNamedPipe(hPipe, &ol) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+//            if (!fConnected) {
+//                if (GetLastError() == ERROR_IO_PENDING) {
+//                    HANDLE waitHandles[] = { ol.hEvent, stateServ.closeEvent };
+//                    DWORD dwWait = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+//                    if (dwWait == WAIT_OBJECT_0) {
+//                        fConnected = TRUE;
+//                    }
+//                    else if (dwWait == WAIT_OBJECT_0 + 1) {
+//                        _tprintf(TEXT("A encerrar o servidor principal...\n"));
+//                        CloseHandle(hPipe);
+//                        CloseHandle(ol.hEvent);
+//                        break;
+//                    }
+//                    else {
+//                        PrintLastError(TEXT("WaitForMultipleObjects failed"));
+//                        CloseHandle(hPipe);
+//                        CloseHandle(ol.hEvent);
+//                        return -1;
+//                    }
+//                }
+//                else {
+//                    PrintLastError(TEXT("ConnectNamedPipe failed"));
+//                    CloseHandle(hPipe);
+//                    CloseHandle(ol.hEvent);
+//                    return -1;
+//                }
+//            }
+//
+//            if (fConnected) {
+//                _tprintf(TEXT("\nConexão estabelecida: Um utilizador acabou de se ligar ao servidor.\n\n"));
+//
+//                int slot = adicionaCliente(&stateServ, hPipe);
+//
+//                if (slot == -1) {
+//                    _tprintf(TEXT("Número máximo de clientes atingido.\n"));
+//                    DisconnectNamedPipe(hPipe);
+//                    CloseHandle(hPipe);
+//                    CloseHandle(ol.hEvent);
+//                    continue;
+//                }
+//
+//                stateServ.currentPipe = hPipe;
+//
+//                HANDLE hThread = CreateThread(
+//                    NULL, 0,
+//                    InstanceThread,
+//                    (LPVOID)&stateServ,
+//                    0, NULL
+//                );
+//
+//                if (hThread == NULL) {
+//                    PrintLastError(TEXT("Thread creation failed"));
+//                    CloseHandle(hPipe);
+//                    CloseHandle(ol.hEvent);
+//                    return -1;
+//                }
+//                else {
+//                    CloseHandle(hThread);
+//                }
+//            }
+//            else {
+//                CloseHandle(hPipe);
+//                CloseHandle(ol.hEvent);
+//            }
+//
+//            if (WaitForSingleObject(stateServ.closeEvent, 0) == WAIT_OBJECT_0) {
+//                _tprintf(TEXT("Encerrando servidor principal.\n"));
+//                break;
+//            }
+//        }
+//
+//        stateServ.running = FALSE;
+//        WaitForSingleObject(hPrecoThread, INFINITE);
+//        CloseHandle(hPrecoThread);
+//
+//        for (int i = 0; i < MAXCLIENTES; ++i) {
+//            if (stateServ.clientPipes[i] != NULL) {
+//                DisconnectNamedPipe(stateServ.clientPipes[i]);
+//                CloseHandle(stateServ.clientPipes[i]);
+//                stateServ.clientPipes[i] = NULL;
+//            }
+//        }
+//
+//        ReleaseMutex(stateServ.closeMutex);
+//        CloseHandle(hAdminThread);
+//        CloseHandle(stateServ.closeEvent);
+//        CloseHandle(stateServ.closeMutex);
+//
+//        CleanupSharedResources(&stateServ);
+//    }
+//
+//    return 0;
+//}

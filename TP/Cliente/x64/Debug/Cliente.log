@@ -1,4 +1,3 @@
 ﻿  cliente.c
 C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(15,13): warning C4013: '_kbhit' indefinido; assumindo extern retornando int
-C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\Cliente\cliente.c(307,18): warning C4101: 'fSucess': variável local não referenciada
   Cliente.vcxproj -> C:\Users\ppedr\OneDrive\Ambiente de Trabalho\ISEC\SO2\TP\BolsaValoresOnline\TP\x64\Debug\Cliente.exe

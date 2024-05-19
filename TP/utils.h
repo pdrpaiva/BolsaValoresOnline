@@ -3,6 +3,8 @@
 
 #include <windows.h>
 #include <tchar.h>
+#include <stdlib.h>
+#include <time.h> 
 
 #define MSG_TAM 2000
 #define MAXCLIENTES 20
@@ -97,6 +99,7 @@ void PrintMenuCliente();
 void readTCharsWithTimeout(TCHAR* p, int maxChars, HANDLE shutdownEvent);
 void ClientCommands(ClientState* stateCli, TCHAR* command);
 void CloseClientPipe(ClientState* stateCli);
+void WriteToPipe(ClientState* stateCli, Msg* MsgToSend);
 
 //--------------------------------------//--------------------------------------//--------------------------------------//
 
@@ -118,6 +121,7 @@ void RegistrarTransacao(ServerState* state, const TCHAR* nomeEmpresa, int numAco
 BOOL RegistrarVenda(Utilizador* utilizador, const TCHAR* nomeEmpresa, int numAcoes);
 BOOL ReadUsersFromFile(ServerState* state, const TCHAR* filename);
 void Wallet(ServerState* state, TCHAR* response, TCHAR* username);
+void AtualizarPrecosAcoes(ServerState* state);
 //--------------------------------------//--------------------------------------//--------------------------------------//
 
 //Bolsa : 
